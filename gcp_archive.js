@@ -97,9 +97,10 @@ async function main() {
           console.error(`  -> ❌ 업로드 실패 (${fileName}):`, uploadError.message);
         }
 
-        // 구글 API 호출 한도(Rate Limit) 방어를 위한 필수 쿨타임 (15초)
+        // 구글 API 호출 한도(Rate Limit) 방어를 위한 필수 쿨타임 (45초)
         if (idx < targetGames.length - 1) {
-          await delay(15000); 
+          console.log(`\n⏳ API 과부하 방지를 위해 45초간 대기합니다...`);
+          await delay(45000);
         }
       } 
       console.log(`\n[${dateString}] 🎉 10개 마크다운 파일 구글 드라이브 분리 적재 완료.`);
