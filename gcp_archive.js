@@ -12,7 +12,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 30; // 30개 가동 유지
+const BATCH_SIZE = 50; // 50개 가동 유지
 const MAX_RETRIES = 3; // 503 에러 방어용 재시도 횟수
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
