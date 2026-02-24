@@ -15,11 +15,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '20'
-      # ★ PDF 변환 엔진(md-to-pdf) 설치 명령어 추가
+          
+      # ★ [핵심] 우분투 서버에 한글 폰트 강제 설치 (네트워크 폰트 다운로드 에러 원천 차단)
+      - name: Install Korean Fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+        
       - name: Install dependencies
         run: |
           npm install
           npm install md-to-pdf
+          
       - name: Run GCP Archive Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
