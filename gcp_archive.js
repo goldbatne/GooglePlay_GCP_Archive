@@ -12,8 +12,8 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 50; // 50개 가동 유지
-const MAX_RETRIES = 3; // 503 에러 방어용 재시도 횟수
+const BATCH_SIZE = 50; 
+const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -40,7 +40,6 @@ function getKrokiUrl(text) {
   return `https://kroki.io/mermaid/svg/${base64}`;
 }
 
-// ★ [이식 완료] 무결점 토크나이저 수술대
 function sanitizeMermaid(rawCode) {
   let fixed = rawCode.replace(/\/\/.*$/gm, '').replace(/%%.*$/gm, '').trim();
   fixed = fixed.replace(/["'*#]/g, ''); 
@@ -146,14 +145,21 @@ async function main() {
     const dateString = now.toISOString().split('T')[0];
     const yearStr = String(now.getFullYear());
     const monthStr = String(now.getMonth() + 1).padStart(2, '0') + "월";
+    // ★ [일일 폴더링 추가]
+    const dayStr = String(now.getDate()).padStart(2, '0') + "일";
+
+    let successCount = 0;
 
     if (allGames.length > 0) {
+      // ★ [3단 폴더 트리 생성: 년 -> 월 -> 일]
       const yearId = await getOrCreateFolder(yearStr, ROOT_FOLDER_ID);
-      const targetFolderId = await getOrCreateFolder(monthStr, yearId);
+      const monthId = await getOrCreateFolder(monthStr, yearId);
+      const targetFolderId = await getOrCreateFolder(dayStr, monthId);
 
       const targetGames = [...allGames].sort(() => 0.5 - Math.random()).slice(0, BATCH_SIZE);
       
       console.log(`\n[${dateString}] 🗄️ 멀티 API 코어 적재 엔진 가동 (가용 키: ${apiKeys.length}개)`);
+      console.log(`📂 저장 경로: ${yearStr}/${monthStr}/${dayStr}`);
 
       for (let idx = 0; idx < targetGames.length; idx++) {
         const luckyGame = targetGames[idx];
@@ -165,7 +171,6 @@ async function main() {
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중 (API Core ${ (idx % apiKeys.length) + 1 } 사용)`);
 
-        // ★ [프롬프트 이식] 컴파일러 페르소나 및 화살표 글자수 제한 적용
         const prompt = `
 # Role
 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 모든 기획 요소(캐릭터, 전투, 콘텐츠, 레벨 등)를 철저히 '입력-연산-출력'이 명확한 시스템 로직으로 해체합니다. 당신의 문서는 감성이나 추상적인 재미를 논하지 않으며, 궁극적으로 "이 시스템이 비즈니스적으로 투자 가치(ROI)가 있는가?"에 대한 데이터 기반의 답을 제공해야 합니다.
@@ -218,7 +223,6 @@ async function main() {
         let reportText = "";
         let draftSuccess = false;
         
-        // [수술대 이식] 503 에러시에만 재시도 (전체 재작성 루프 폐기 -> 속도 극대화)
         for (let initAttempt = 1; initAttempt <= MAX_RETRIES; initAttempt++) {
             try {
                 const draftResult = await model.generateContent(prompt);
@@ -236,23 +240,21 @@ async function main() {
           continue; 
         }
 
-        // 반복 출력 시 마지막 본문만 가져오는 안전망
         let jsonMatches = [...reportText.matchAll(/```json/g)];
         if (jsonMatches.length > 1) {
             let lastMetaIndex = jsonMatches[jsonMatches.length - 1].index;
             reportText = reportText.substring(lastMetaIndex);
         }
 
-        // ★ [수술대 이식] 로컬 0.1초 Fast-Track 검증 및 교정
         const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
         let newReportText = "";
         let lastIndex = 0;
+        let isMermaidBroken = false; 
         
         for (const match of [...reportText.matchAll(mermaidRegex)]) {
             newReportText += reportText.substring(lastIndex, match.index);
             let fastTrackCode = sanitizeMermaid(match[1]);
             
-            // Kroki 서버 검증
             const fastUrl = getKrokiUrl(fastTrackCode);
             try {
                 const fastRes = await fetch(fastUrl);
@@ -261,16 +263,23 @@ async function main() {
                     console.log(`  -> ⚡ [Fast-Track 성공] 로컬 수술대 정규식 교정 완료!`);
                     newReportText += "```mermaid\n" + fastTrackCode + "\n```";
                 } else {
-                    console.log(`  -> 🛡️ [최후 방어선] 외계어 감지. 렌더링을 포기하고 원본 텍스트를 보존합니다.`);
-                    newReportText += "```text\n/* [AI 문법 파괴로 다이어그램 렌더링 차단됨] */\n" + fastTrackCode + "\n```";
+                    console.log(`  -> 🚨 [품질 미달] 수술 불가능한 외계어 다이어그램 감지.`);
+                    isMermaidBroken = true; 
+                    break; 
                 }
             } catch (e) {
-                newReportText += "```mermaid\n" + fastTrackCode + "\n```"; // 네트워크 에러시 일단 저장
+                newReportText += "```mermaid\n" + fastTrackCode + "\n```"; 
             }
             lastIndex = match.index + match[0].length;
         }
-        reportText = newReportText + reportText.substring(lastIndex);
 
+        if (isMermaidBroken) {
+            console.log(`  -> ⏭️ 해당 게임의 기획서를 구글 드라이브에 저장하지 않고 건너뜁니다 (Skip).`);
+            if (idx < targetGames.length - 1) await delay(30000); 
+            continue; 
+        }
+
+        reportText = newReportText + reportText.substring(lastIndex);
 
         let coreSystemName = "시스템_통합_분석"; 
         try {
@@ -293,14 +302,23 @@ async function main() {
 
         try {
           await drive.files.create({
-            requestBody: { name: fileName, parents: [targetFolderId] },
+            requestBody: { name: fileName, parents: [targetFolderId] }, // ★ [일(Day) 폴더에 저장]
             media: { mimeType: 'text/markdown', body: bufferStream }
           });
-          console.log(`  -> 💾 적재 완료: ${yearStr}/${monthStr}/${fileName}`);
+          console.log(`  -> 💾 적재 완료: ${yearStr}/${monthStr}/${dayStr}/${fileName}`);
+          successCount++;
         } catch (e) { console.error(`  -> ❌ 드라이브 업로드 실패: ${e.message}`); }
 
-        if (idx < targetGames.length - 1) await delay(30000); // API Rate Limit 보호를 위해 대기시간 30초로 상향
+        if (idx < targetGames.length - 1) await delay(30000); 
       }
+      
+      console.log(`\n======================================================`);
+      console.log(`[${dateString}] 📊 최종 결산 리포트`);
+      console.log(`- 목표 처리량: ${targetGames.length}개`);
+      console.log(`- 적재 성공량: ${successCount}개`);
+      console.log(`- 불량 폐기량: ${targetGames.length - successCount}개`);
+      console.log(`🎉 구글 드라이브 동기화 작업이 모두 종료되었습니다.`);
+      console.log(`======================================================\n`);
     }
   } catch (error) { console.error("공정 치명적 에러:", error); process.exit(1); }
 }
