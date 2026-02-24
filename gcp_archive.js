@@ -13,7 +13,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 10; 
+const BATCH_SIZE = 100; 
 const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -176,7 +176,6 @@ async function main() {
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중 (API Core ${ (idx % apiKeys.length) + 1 } 사용)`);
 
-        // ★ [1. 노션에 사용된 8단계 수석 기획자 프롬프트 이식]
         const prompt = `
 # Base Persona & Tone
 - 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 기획은 정답 맞추기가 아니라 '문장으로 회사(자본)를 설득하는 영역'임을 완벽히 이해하고 있습니다.
@@ -189,10 +188,10 @@ async function main() {
 본문 작성 전 최상단에 반드시 다음 3줄을 작성하십시오.
 메인장르: (반드시 다음 10개 중 하나만 선택: RPG, MMORPG, 방치형, SLG/전략, 캐주얼/퍼즐, 액션/슈팅, SNG/시뮬레이션, 스포츠/레이싱, 카지노/보드, 기타)
 서브장르: (15자 이내 자유 형식)
-시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
+시스템: (15자 이내 명사형)
 
-# Step 1: 핵심 콘텐츠 시스템 특정 및 분석
-1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임의 매출과 리텐션을 지탱하는 가장 핵심적인 '시스템 1개'를 특정하십시오.
+# Step 1: 핵심 콘텐츠 시스템 특정 및 교차 검증
+1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임의 매출을 지탱하는 가장 핵심적인 '시스템 1개'를 특정하십시오.
 
 # Step 2: 실무형 역기획서 작성 (Strict Format)
 아래 8단계 구조에 맞춰 마크다운 형식으로 작성하십시오.
@@ -206,7 +205,7 @@ async function main() {
 08. 벤치마킹 인사이트 및 개발 코스트 추정
 
 # Output Constraints (절대 수정 금지)
-* [사고 과정 노출 금지]: 파이썬 코드 실행 결과나 내부 검색/분석 과정은 절대로 텍스트로 노출하지 마십시오. 처음부터 끝까지 생략 없이 단 한 번만 출력하십시오.
+* [사고 과정 노출 금지]: 파이썬 코드 실행 결과나 내부 검색/분석 과정은 절대로 텍스트로 노출하지 마십시오.
 * [페르소나 전환]: 다이어그램(Mermaid) 코드를 작성할 때만큼은 '수석 기획자'가 아니라 '감정과 의도가 거세된 엄격한 컴파일러 기계'로 빙의하십시오.
 * [매우 중요] 화살표 텍스트(\`-->|텍스트|\`)는 반드시 **단답형 키워드(10자 이내)**로만 작성하십시오. 문장형 작성은 문법을 파괴하므로 절대 금지합니다.
 * 다이어그램 노드 ID(대괄호 앞의 식별자)는 무조건 **알파벳 대문자(A, B, C...)**만 사용. 텍스트 내부에 큰따옴표나 작은따옴표 절대로 사용 금지. 화살표 끝에 콜론(:) 사용 금지.
@@ -239,7 +238,6 @@ async function main() {
             reportText = reportText.substring(lastMetaIndex);
         }
 
-        // 메타데이터 파싱
         let coreSystemName = "시스템_통합_분석"; 
         const systemMatch = reportText.match(/시스템:\s*([^\n]+)/);
         if (systemMatch) {
@@ -250,7 +248,6 @@ async function main() {
                                .replace(/서브장르:.*?\n/g, '')
                                .replace(/시스템:.*?\n/g, '').trim();
 
-        // 노션 스타일 요약 헤더 삽입
         const cleanHeader = `
 # [${luckyRank}위] ${luckyGame.title} 역기획서
 > **분석 시스템:** ${coreSystemName}
@@ -262,10 +259,10 @@ async function main() {
 `;
         reportText = cleanHeader + reportText;
 
-        // ★ [2. MD와 PDF 이원화 처리 로직 완벽 적용]
+        // ★ [가장 중요한 노션의 AI 교정 루프 이식]
         const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-        let mdText = "";  // 원자재 보존용 (Mermaid 코드 포함)
-        let pdfText = ""; // 렌더링용 (Mermaid 이미지 대체)
+        let mdText = "";  
+        let pdfText = ""; 
         let lastIndex = 0;
         let isMermaidBroken = false; 
         
@@ -274,25 +271,89 @@ async function main() {
             mdText += preText;
             pdfText += preText;
 
-            let fastTrackCode = sanitizeMermaid(match[1]);
+            let originalMermaid = match[1];
+            let finalFixedMermaid = originalMermaid; // 교정이 끝난 최종본을 담을 변수
             
+            let fastTrackCode = sanitizeMermaid(originalMermaid);
             const fastUrl = getKrokiUrl(fastTrackCode);
+            
             try {
                 const fastRes = await fetch(fastUrl);
                 const fastSvg = await fastRes.text();
-                if (fastRes.ok && !fastSvg.includes('Syntax error') && !fastSvg.includes('SyntaxError')) {
-                    console.log(`  -> ⚡ [Fast-Track 성공] 코드는 MD에 보존, 이미지는 PDF 렌더링용으로 분리 완료!`);
-                    
-                    // MD에는 교정된 코드를 다시 집어넣습니다.
-                    mdText += "```mermaid\n" + fastTrackCode + "\n```";
-                    // PDF에는 코드를 없애고 이미지를 집어넣습니다.
-                    pdfText += `\n\n![시스템 다이어그램](${fastUrl})\n\n`;
-                    
+                
+                if (fastRes.ok && !fastSvg.includes('Syntax error') && !fastSvg.includes('SyntaxError') && !fastSvg.includes('Error 400')) {
+                    console.log(`  -> ⚡ [Fast-Track 성공] AI 재호출 없이 정규식만으로 완벽 교정 완료!`);
+                    finalFixedMermaid = fastTrackCode; // 1차 통과 완료
                 } else {
-                    console.log(`  -> 🚨 [품질 미달] 수술 불가능한 외계어 다이어그램 감지.`);
-                    isMermaidBroken = true; 
-                    break; 
+                    console.log(`  -> ⚠️ [Fast-Track 실패] 복합 에러 감지. AI 딥러닝 교정 루프 진입...`);
+                    
+                    const MAX_QA_RETRIES = 2; // 최대 2번 더 AI에게 기회를 줍니다.
+                    let currentMermaid = originalMermaid;
+                    let qaSuccess = false;
+
+                    for (let attempt = 1; attempt <= MAX_QA_RETRIES; attempt++) {
+                        const qaPrompt = `
+[페르소나 전환]: 당신은 감정이 없는 '엄격한 다이어그램 컴파일러'입니다. 기획적 의도나 주석은 모두 버리고 오직 완벽한 문법의 코드만 출력하십시오.
+${attempt > 1 ? "\n**[경고] 이전 시도에서 파서 에러가 발생했습니다! 화살표 텍스트에 긴 문장을 쓰지 마십시오. 화살표 텍스트는 10자 이내로 짧게 쓰십시오.**\n" : ""}
+1. [ERD 규칙]: \`erDiagram\` 속성에 따옴표나 코멘트를 모두 지우고 '타입 이름'만 남기세요.
+2. [Flowchart 규칙]: 모든 \`subgraph\` 이름은 반드시 큰따옴표(\`""\`)로 감쌀 것.
+3. [노드 규칙]: 대괄호 \`[]\` 밖의 노드 ID는 반드시 알파벳으로 명시하십시오. (예: \`Node1[텍스트]\`)
+4. 마크다운(\`\`\`) 없이 순수 코드만 반환하십시오.
+
+[원본 코드]:
+${currentMermaid}
+`;
+                        let qaResultText = "";
+                        for(let qaTry=1; qaTry<=3; qaTry++) {
+                            try {
+                                let res = await model.generateContent(qaPrompt);
+                                qaResultText = res.response.text();
+                                break;
+                            } catch(qaErr) {
+                                console.log(`  -> ⚠️ QA 중 구글 서버 연결 실패. 15초 대기 후 재시도...`);
+                                await delay(15000);
+                            }
+                        }
+                        
+                        if(!qaResultText) continue;
+
+                        try {
+                            let aiFixedCode = qaResultText.replace(/```mermaid\s*/ig, '').replace(/```/g, '').trim();
+                            let doubleCheckedCode = sanitizeMermaid(aiFixedCode); // AI가 짠 걸 한 번 더 수술대에 올림
+                            
+                            const testUrl = getKrokiUrl(doubleCheckedCode);
+                            const testResponse = await fetch(testUrl);
+                            const testSvgText = await testResponse.text();
+
+                            if (testResponse.ok && !testSvgText.includes('Syntax error') && !testSvgText.includes('SyntaxError') && !testSvgText.includes('Error 400')) {
+                                console.log(`  -> [시도 ${attempt}/${MAX_QA_RETRIES}] AI 딥러닝 렌더링 성공!`);
+                                finalFixedMermaid = doubleCheckedCode; // 최종 교정 완료
+                                qaSuccess = true;
+                                await delay(15000); // 쿨타임
+                                break; 
+                            } else {
+                                console.log(`  -> [시도 ${attempt}/${MAX_QA_RETRIES}] 렌더링 실패. AI에게 코드를 다시 반려합니다.`);
+                                currentMermaid = doubleCheckedCode; 
+                            }
+                        } catch(qaError) { console.warn("QA 에러 발생, 재시도..."); }
+                        
+                        await delay(15000); 
+                    }
+                    
+                    if (!qaSuccess) {
+                        console.log(`  -> 🚨 [최후 방어선] 2번의 AI 교정으로도 복구 불가능한 외계어 감지.`);
+                        isMermaidBroken = true;
+                        break; // 루프 탈출
+                    }
                 }
+
+                // 모든 교정 루프를 무사히 통과했다면 MD와 PDF에 각각 적재합니다.
+                if (!isMermaidBroken) {
+                    mdText += "```mermaid\n" + finalFixedMermaid + "\n```"; // MD는 순수 코드 보존
+                    const finalRenderUrl = getKrokiUrl(finalFixedMermaid);
+                    pdfText += `\n\n![시스템 다이어그램](${finalRenderUrl})\n\n`; // PDF는 이미지 삽입
+                }
+
             } catch (e) {
                 isMermaidBroken = true;
                 break;
@@ -314,16 +375,16 @@ async function main() {
         const baseFileName = `[${dateString}]_${String(luckyRank).padStart(3, '0')}위_${safeTitle}_(${coreSystemName})`;
 
         try {
-          // [1] 마크다운(.md) 파일 저장 - mdText 변수 사용 (코드 원본 보존)
+          // [1] 마크다운(.md) 파일 저장 
           const mdStream = new stream.PassThrough();
-          mdStream.end(Buffer.from(mdText, 'utf8'));
+          mdStream.end(Buffer.from(mdText, 'utf8')); 
           await drive.files.create({
             requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] },
             media: { mimeType: 'text/markdown', body: mdStream }
           });
           console.log(`  -> 💾 [MD] 저장 완료: ${mdFolderName}/${baseFileName}.md`);
 
-          // [2] PDF(.pdf) 파일 변환 및 저장 - pdfText 변수 사용 (이미지 렌더링)
+          // [2] PDF(.pdf) 파일 변환 및 저장
           console.log(`  -> 📄 [PDF] 변환 시작... (약 5초 소요)`);
           const pdfData = await mdToPdf({ content: pdfText }, {
               launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
