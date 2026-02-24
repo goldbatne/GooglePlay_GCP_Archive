@@ -14,7 +14,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 3; 
+const BATCH_SIZE = 3; // ★ 현재 데모 시연을 위해 3개로 세팅되어 있습니다.
 const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -176,6 +176,7 @@ async function main() {
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
 
+        // ★ 프롬프트: Step 1 고유명사 타겟팅 로직 100% 반영 완료
         const prompt = `
 # Base Persona & Tone
 - 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 기획은 정답 맞추기가 아니라 '문장으로 회사(자본)를 설득하는 영역'임을 완벽히 이해하고 있습니다.
@@ -190,8 +191,9 @@ async function main() {
 서브장르: (15자 이내 자유 형식)
 시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
 
-# Step 1: 핵심 콘텐츠 시스템 특정 및 분석
-1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임의 매출과 리텐션을 지탱하는 가장 핵심적인 '시스템 1개'를 특정하십시오.
+# Step 1: 정확한 인게임 고유명사 타겟팅
+1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임의 매출을 견인하는 시그니처 시스템 1개를 특정하십시오.
+2. 이때 '캐릭터 뽑기', '장비 강화' 같은 제너릭한 일반 명사를 절대 사용하지 마십시오. 반드시 해당 게임 유저들이 실제로 부르는 **정확한 인게임 고유명사(예: '원신 - 기원', '리니지 - 룸티스의 귀걸이', '승리의 여신: 니케 - 싱크로 디바이스')**를 분석 대상으로 명시하고 이를 기반으로 역기획을 전개하십시오.
 
 # Step 2: 실무형 역기획서 작성 (Strict Format)
 아래 8단계 구조에 맞춰 마크다운 형식으로 작성하십시오.
@@ -223,7 +225,7 @@ async function main() {
                 draftSuccess = true;
                 break;
             } catch (apiError) {
-                console.log(`  -> 🚨 진짜 에러 원인: ${apiError.message}`); // ★ 이 줄을 추가
+                console.log(`  -> 🚨 진짜 에러 원인: ${apiError.message}`); 
                 console.log(`  -> ⚠️ 서버 과부하 감지. 15초 냉각 후 재시도 (${initAttempt}/${MAX_RETRIES})...`);
                 await delay(15000);
             }
@@ -306,6 +308,7 @@ ${currentMermaid}
                         let qaResultText = "";
                         for(let qaTry=1; qaTry<=3; qaTry++) {
                             try {
+                                await delay(5000); // ★ QA 루프에도 5초 안전 쿨타임 적용
                                 let res = await model.generateContent(qaPrompt);
                                 qaResultText = res.response.text();
                                 break;
