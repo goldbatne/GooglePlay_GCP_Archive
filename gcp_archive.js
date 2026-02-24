@@ -176,48 +176,36 @@ async function main() {
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중 (API Core ${ (idx % apiKeys.length) + 1 } 사용)`);
 
+        // ★ [1. 노션에 사용된 8단계 수석 기획자 프롬프트 이식]
         const prompt = `
-# Role
-당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 모든 기획 요소(캐릭터, 전투, 콘텐츠, 레벨 등)를 철저히 '입력-연산-출력'이 명확한 시스템 로직으로 해체합니다. 당신의 문서는 감성이나 추상적인 재미를 논하지 않으며, 궁극적으로 "이 시스템이 비즈니스적으로 투자 가치(ROI)가 있는가?"에 대한 데이터 기반의 답을 제공해야 합니다.
+# Base Persona & Tone
+- 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 기획은 정답 맞추기가 아니라 '문장으로 회사(자본)를 설득하는 영역'임을 완벽히 이해하고 있습니다.
+- 빈말이나 과한 칭찬, 단순 현상 나열을 엄격히 금지합니다. 외부 검색으로 정확한 백엔드 수치를 알 수 없는 경우 합리적으로 역산하되 반드시 **[추정]** 태그를 붙이십시오.
 
 # Input
-* **타겟 게임:** [${luckyGame.title}] (개발사: ${luckyGame.developer})
-* **현재 순위:** 한국 구글플레이 매출 ${luckyRank}위
-* **분석 대상 자동 선정 명령:** 이 게임에서 현재 매출 순위를 견인하는 가장 핵심적인 BM(Business Model) 또는 핵심 리텐션(Core Loop) 시스템 1가지를 당신이 스스로 판별하여 분석 대상으로 삼으십시오.
+* **타겟 게임:** [${luckyGame.developer}]의 ${luckyGame.title} (구글 매출 ${luckyRank}위)
 
-# Step 0: 메타데이터 및 가설 정의
-본문 작성 전 최상단에 다음 형식의 JSON 블록과 가설을 반드시 선언하십시오.
+# Step 0: 메타데이터 정의 (절대 수정 금지)
+본문 작성 전 최상단에 반드시 다음 3줄을 작성하십시오.
+메인장르: (반드시 다음 10개 중 하나만 선택: RPG, MMORPG, 방치형, SLG/전략, 캐주얼/퍼즐, 액션/슈팅, SNG/시뮬레이션, 스포츠/레이싱, 카지노/보드, 기타)
+서브장르: (15자 이내 자유 형식)
+시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
 
-\`\`\`json
-{
-  "analysis_date": "${dateString}",
-  "store_rank": ${luckyRank},
-  "game_title": "${luckyGame.title}",
-  "developer": "${luckyGame.developer}",
-  "core_system_analyzed": "당신이 선정한 타겟 시스템 명사형 (예: 재화 소각 및 스탯 증폭 시스템)"
-}
-\`\`\`
-* 장르: (10자 이내)
-* 분석 기준 가설: [추정 DAU / 핵심 객단가 / 목표 리텐션 중 택 1하여 수치 선언]
+# Step 1: 핵심 콘텐츠 시스템 특정 및 분석
+1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임의 매출과 리텐션을 지탱하는 가장 핵심적인 '시스템 1개'를 특정하십시오.
 
-# Step 1: 핵심 로직 강제 치환 및 정보 교차 검증
-1. 당신이 선정한 '분석 대상'이 타겟 게임의 매출과 리텐션에 어떻게 기여하는지 시스템 관점에서 1문장으로 정의하십시오.
-2. 검색 시 ${dateString}을 기준으로 최신 트렌드를 교차 검증하고, 1년 이상 지난 정보는 "오래된 정보입니다"라고 명시하십시오. 불확실한 수치는 절대 지어내지 말고 "정보 부족"이라 선언하십시오.
+# Step 2: 실무형 역기획서 작성 (Strict Format)
+아래 8단계 구조에 맞춰 마크다운 형식으로 작성하십시오.
+01. 시스템 정의 및 ROI
+02. 콘텐츠 코어 루프 (Mermaid \`graph LR\`)
+03. 유저 경험 플로우차트 (Mermaid \`flowchart TD\`)
+04. 수치 밸런스 설계 로직
+05. 상세 명세 및 동기 설계
+06. 확장형 데이터 테이블 (Mermaid \`erDiagram\`)
+07. 엣지 케이스 및 예외 처리
+08. 벤치마킹 인사이트 및 개발 코스트 추정
 
-# Step 2: 범용 입체 역기획서 작성 (6-Step Dissection)
-아래 구조에 맞춰 마크다운 형식으로 작성하십시오. 감성적 서술을 엄격히 금지합니다.
-
-## [출력 목차]
-* **01. 시스템 정의 및 ROI (The 'Why')**
-* **02. 자원/경험 변환 루프 (The 'Process')**
-    * 유저의 입력(비용/시간/컨트롤)이 어떤 연산(확률/물리/기믹)을 거쳐 출력(보상/경험)되는지 시각화 (Mermaid flowchart TD).
-* **03. 핵심 수치 및 밸런스 로직 (The 'Numeric')**
-* **04. 데이터 스키마 설계 (The 'Data')**
-    * 이 기획을 클라이언트-서버 간 구현하기 위한 기획자 주도형 데이터 구조 (Mermaid erDiagram). 정적/동적 데이터 분리.
-* **05. 치명적 예외 및 방어 기제 (The 'Defense')**
-* **06. MVP 구현 통찰 (The 'Action')**
-
-# Output Constraints
+# Output Constraints (절대 수정 금지)
 * [사고 과정 노출 금지]: 파이썬 코드 실행 결과나 내부 검색/분석 과정은 절대로 텍스트로 노출하지 마십시오. 처음부터 끝까지 생략 없이 단 한 번만 출력하십시오.
 * [페르소나 전환]: 다이어그램(Mermaid) 코드를 작성할 때만큼은 '수석 기획자'가 아니라 '감정과 의도가 거세된 엄격한 컴파일러 기계'로 빙의하십시오.
 * [매우 중요] 화살표 텍스트(\`-->|텍스트|\`)는 반드시 **단답형 키워드(10자 이내)**로만 작성하십시오. 문장형 작성은 문법을 파괴하므로 절대 금지합니다.
@@ -245,19 +233,47 @@ async function main() {
           continue; 
         }
 
-        let jsonMatches = [...reportText.matchAll(/```json/g)];
-        if (jsonMatches.length > 1) {
-            let lastMetaIndex = jsonMatches[jsonMatches.length - 1].index;
+        let metaMatches = [...reportText.matchAll(/메인장르:/g)];
+        if (metaMatches.length > 1) {
+            let lastMetaIndex = metaMatches[metaMatches.length - 1].index;
             reportText = reportText.substring(lastMetaIndex);
         }
 
+        // 메타데이터 파싱
+        let coreSystemName = "시스템_통합_분석"; 
+        const systemMatch = reportText.match(/시스템:\s*([^\n]+)/);
+        if (systemMatch) {
+            coreSystemName = systemMatch[1].replace(/\[\/META\]/gi, '').replace(/[/\\?%*:|"<>]/g, '_').trim();
+        }
+
+        reportText = reportText.replace(/메인장르:.*?\n/g, '')
+                               .replace(/서브장르:.*?\n/g, '')
+                               .replace(/시스템:.*?\n/g, '').trim();
+
+        // 노션 스타일 요약 헤더 삽입
+        const cleanHeader = `
+# [${luckyRank}위] ${luckyGame.title} 역기획서
+> **분석 시스템:** ${coreSystemName}
+> **개발사:** ${luckyGame.developer}
+> **작성일:** ${dateString}
+
+---
+
+`;
+        reportText = cleanHeader + reportText;
+
+        // ★ [2. MD와 PDF 이원화 처리 로직 완벽 적용]
         const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-        let newReportText = "";
+        let mdText = "";  // 원자재 보존용 (Mermaid 코드 포함)
+        let pdfText = ""; // 렌더링용 (Mermaid 이미지 대체)
         let lastIndex = 0;
         let isMermaidBroken = false; 
         
         for (const match of [...reportText.matchAll(mermaidRegex)]) {
-            newReportText += reportText.substring(lastIndex, match.index);
+            const preText = reportText.substring(lastIndex, match.index);
+            mdText += preText;
+            pdfText += preText;
+
             let fastTrackCode = sanitizeMermaid(match[1]);
             
             const fastUrl = getKrokiUrl(fastTrackCode);
@@ -265,8 +281,13 @@ async function main() {
                 const fastRes = await fetch(fastUrl);
                 const fastSvg = await fastRes.text();
                 if (fastRes.ok && !fastSvg.includes('Syntax error') && !fastSvg.includes('SyntaxError')) {
-                    console.log(`  -> ⚡ [Fast-Track 성공] 다이어그램을 이미지로 치환 완료!`);
-                    newReportText += `\n\n![시스템 다이어그램](${fastUrl})\n\n`;
+                    console.log(`  -> ⚡ [Fast-Track 성공] 코드는 MD에 보존, 이미지는 PDF 렌더링용으로 분리 완료!`);
+                    
+                    // MD에는 교정된 코드를 다시 집어넣습니다.
+                    mdText += "```mermaid\n" + fastTrackCode + "\n```";
+                    // PDF에는 코드를 없애고 이미지를 집어넣습니다.
+                    pdfText += `\n\n![시스템 다이어그램](${fastUrl})\n\n`;
+                    
                 } else {
                     console.log(`  -> 🚨 [품질 미달] 수술 불가능한 외계어 다이어그램 감지.`);
                     isMermaidBroken = true; 
@@ -285,39 +306,26 @@ async function main() {
             continue; 
         }
 
-        reportText = newReportText + reportText.substring(lastIndex);
-
-        let coreSystemName = "시스템_통합_분석"; 
-        try {
-          const jsonMatch = reportText.match(/```json\n([\s\S]*?)\n```/);
-          if (jsonMatch && jsonMatch[1]) {
-            const parsedData = JSON.parse(jsonMatch[1]);
-            if (parsedData.core_system_analyzed) {
-              coreSystemName = parsedData.core_system_analyzed.replace(/[/\\?%*:|"<>]/g, '_').trim();
-            }
-          }
-        } catch (e) {
-          console.log(`  -> ⚠️ 메타데이터 파싱 에러: 기본 시스템 명칭으로 대체합니다.`);
-        }
+        const remainingText = reportText.substring(lastIndex);
+        mdText += remainingText;
+        pdfText += remainingText;
 
         const safeTitle = luckyGame.title.replace(/[/\\?%*:|"<>]/g, '_');
         const baseFileName = `[${dateString}]_${String(luckyRank).padStart(3, '0')}위_${safeTitle}_(${coreSystemName})`;
 
         try {
-          // [1] 마크다운(.md) 파일 저장
+          // [1] 마크다운(.md) 파일 저장 - mdText 변수 사용 (코드 원본 보존)
           const mdStream = new stream.PassThrough();
-          mdStream.end(Buffer.from(reportText, 'utf8'));
+          mdStream.end(Buffer.from(mdText, 'utf8'));
           await drive.files.create({
             requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] },
             media: { mimeType: 'text/markdown', body: mdStream }
           });
           console.log(`  -> 💾 [MD] 저장 완료: ${mdFolderName}/${baseFileName}.md`);
 
-          // [2] PDF(.pdf) 파일 변환 및 저장
+          // [2] PDF(.pdf) 파일 변환 및 저장 - pdfText 변수 사용 (이미지 렌더링)
           console.log(`  -> 📄 [PDF] 변환 시작... (약 5초 소요)`);
-          
-          // ★ [핵심] 외부 다운로드 차단: 로컬 시스템에 방금 깐 'Noto Sans CJK KR' 폰트를 사용하도록 강제 지시
-          const pdfData = await mdToPdf({ content: reportText }, {
+          const pdfData = await mdToPdf({ content: pdfText }, {
               launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
               css: `
                   body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.6; color: #333; }
