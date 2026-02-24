@@ -13,7 +13,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 40; 
+const BATCH_SIZE = 50; 
 const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -146,16 +146,14 @@ async function main() {
     const dateString = now.toISOString().split('T')[0];
     const yearStr = String(now.getFullYear());
     const monthStr = String(now.getMonth() + 1).padStart(2, '0') + "월";
-    
-    // ★ [폴더명 분리]
     const dayStr = String(now.getDate()).padStart(2, '0') + "일";
+
     const mdFolderName = `${dayStr}_md`;
     const pdfFolderName = `${dayStr}_pdf`;
 
     let successCount = 0;
 
     if (allGames.length > 0) {
-      // ★ [트리 생성: 년 -> 월 -> (md폴더 / pdf폴더)]
       const yearId = await getOrCreateFolder(yearStr, ROOT_FOLDER_ID);
       const monthId = await getOrCreateFolder(monthStr, yearId);
       
@@ -306,7 +304,7 @@ async function main() {
         const baseFileName = `[${dateString}]_${String(luckyRank).padStart(3, '0')}위_${safeTitle}_(${coreSystemName})`;
 
         try {
-          // ★ [1] 마크다운(.md) 파일 저장 -> mdFolderId로 전송
+          // [1] 마크다운(.md) 파일 저장
           const mdStream = new stream.PassThrough();
           mdStream.end(Buffer.from(reportText, 'utf8'));
           await drive.files.create({
@@ -315,13 +313,14 @@ async function main() {
           });
           console.log(`  -> 💾 [MD] 저장 완료: ${mdFolderName}/${baseFileName}.md`);
 
-          // ★ [2] PDF(.pdf) 파일 변환 및 저장 -> pdfFolderId로 전송
+          // [2] PDF(.pdf) 파일 변환 및 저장
           console.log(`  -> 📄 [PDF] 변환 시작... (약 5초 소요)`);
+          
+          // ★ [핵심] 외부 다운로드 차단: 로컬 시스템에 방금 깐 'Noto Sans CJK KR' 폰트를 사용하도록 강제 지시
           const pdfData = await mdToPdf({ content: reportText }, {
               launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox'] },
               css: `
-                  @import url('[https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap](https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap)');
-                  body { font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; color: #333; }
+                  body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.6; color: #333; }
                   h1, h2, h3 { color: #111; margin-top: 24px; border-bottom: 1px solid #eaeaea; padding-bottom: 8px;}
                   img { max-width: 100%; height: auto; display: block; margin: 20px auto; }
                   table { border-collapse: collapse; width: 100%; margin: 20px 0; font-size: 0.9em; }
