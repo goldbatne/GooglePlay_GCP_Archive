@@ -145,23 +145,32 @@ async function main() {
     const now = new Date();
     now.setHours(now.getHours() + 9);
     const dateString = now.toISOString().split('T')[0];
-    const yearStr = String(now.getFullYear());
-    const monthStr = String(now.getMonth() + 1).padStart(2, '0') + "월";
-    const dayStr = String(now.getDate()).padStart(2, '0') + "일";
-
-    const mdFolderName = `${dayStr}_md`;
-    const pdfFolderName = `${dayStr}_pdf`;
-    const htmlFolderName = `${dayStr}_html`;
+    const yearStr = String(now.getFullYear()) + "년"; // 예: 2026년
+    const monthStr = String(now.getMonth() + 1).padStart(2, '0') + "월"; // 예: 02월
+    const dayStr = String(now.getDate()).padStart(2, '0') + "일"; // 예: 25일
 
     let successCount = 0;
 
     if (allGames.length > 0) {
-      const yearId = await getOrCreateFolder(yearStr, ROOT_FOLDER_ID);
-      const monthId = await getOrCreateFolder(monthStr, yearId);
       
-      const mdFolderId = await getOrCreateFolder(mdFolderName, monthId);
-      const pdfFolderId = await getOrCreateFolder(pdfFolderName, monthId);
-      const htmlFolderId = await getOrCreateFolder(htmlFolderName, monthId);
+      // ★ [NEW] 대표님 기획 100% 반영: 4-Depth 폴더 하이라키 구축
+      // Depth 1: 루트 폴더 안에 '2026년' 폴더 생성
+      const mainYearId = await getOrCreateFolder(yearStr, ROOT_FOLDER_ID);
+      
+      // Depth 2: '2026년' 폴더 안에 포맷별 폴더(2026년_md 등) 생성
+      const mdFormatId = await getOrCreateFolder(`${yearStr}_md`, mainYearId);
+      const pdfFormatId = await getOrCreateFolder(`${yearStr}_pdf`, mainYearId);
+      const htmlFormatId = await getOrCreateFolder(`${yearStr}_html`, mainYearId);
+
+      // Depth 3: 포맷별 폴더 안에 '월(02월)' 폴더 생성
+      const mdMonthId = await getOrCreateFolder(monthStr, mdFormatId);
+      const pdfMonthId = await getOrCreateFolder(monthStr, pdfFormatId);
+      const htmlMonthId = await getOrCreateFolder(monthStr, htmlFormatId);
+
+      // Depth 4: 월 폴더 안에 '일(25일)' 최종 목적지 폴더 생성
+      const mdFolderId = await getOrCreateFolder(dayStr, mdMonthId);
+      const pdfFolderId = await getOrCreateFolder(dayStr, pdfMonthId);
+      const htmlFolderId = await getOrCreateFolder(dayStr, htmlMonthId);
 
       const targetGames = [...allGames].sort(() => 0.5 - Math.random()).slice(0, BATCH_SIZE);
       
@@ -390,7 +399,7 @@ ${currentMermaid}
           const mdStream = new stream.PassThrough();
           mdStream.end(Buffer.from(mdText, 'utf8')); 
           await drive.files.create({
-            requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] },
+            requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] }, // ★ 최종 폴더인 25일에 저장
             media: { mimeType: 'text/markdown', body: mdStream }
           });
           console.log(`  -> 💾 [MD] 저장 완료`);
@@ -400,7 +409,7 @@ ${currentMermaid}
         try {
           console.log(`  -> 📄 [PDF] 변환 시작...`);
           const pdfData = await mdToPdf({ content: pdfText }, {
-              timeout: 120000, // ★ 추가: Puppeteer 렌더링 타임아웃을 30초에서 120초로 대폭 연장
+              timeout: 120000, 
               launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] },
               css: `
                   body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.7; color: #1F2937; padding: 20px; }
@@ -425,7 +434,7 @@ ${currentMermaid}
           const pdfStream = new stream.PassThrough();
           pdfStream.end(pdfData.content);
           await drive.files.create({
-            requestBody: { name: `${baseFileName}.pdf`, parents: [pdfFolderId] },
+            requestBody: { name: `${baseFileName}.pdf`, parents: [pdfFolderId] }, // ★ 최종 폴더인 25일에 저장
             media: { mimeType: 'application/pdf', body: pdfStream }
           });
           console.log(`  -> 💾 [PDF] 저장 완료`);
@@ -475,7 +484,7 @@ ${currentMermaid}
           const htmlStream = new stream.PassThrough();
           htmlStream.end(Buffer.from(fullHtml, 'utf8'));
           await drive.files.create({
-            requestBody: { name: `${baseFileName}.html`, parents: [htmlFolderId] },
+            requestBody: { name: `${baseFileName}.html`, parents: [htmlFolderId] }, // ★ 최종 폴더인 25일에 저장
             media: { mimeType: 'text/html', body: htmlStream }
           });
           console.log(`  -> 💾 [HTML] 저장 완료`);
