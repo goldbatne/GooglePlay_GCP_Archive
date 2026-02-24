@@ -222,6 +222,7 @@ async function main() {
                 draftSuccess = true;
                 break;
             } catch (apiError) {
+                console.log(`  -> 🚨 진짜 에러 원인: ${apiError.message}`); // ★ 이 줄을 추가
                 console.log(`  -> ⚠️ 서버 과부하 감지. 15초 냉각 후 재시도 (${initAttempt}/${MAX_RETRIES})...`);
                 await delay(15000);
             }
