@@ -3,7 +3,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const stream = require('stream');
 const zlib = require('zlib');
 const { mdToPdf } = require('md-to-pdf'); 
-const { marked } = require('marked'); // ★ HTML 변환용 라이브러리 추가
+const { marked } = require('marked');
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GCP_CLIENT_ID,
@@ -14,7 +14,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 5; // 100개 풀가동
+const BATCH_SIZE = 10; 
 const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -151,7 +151,7 @@ async function main() {
 
     const mdFolderName = `${dayStr}_md`;
     const pdfFolderName = `${dayStr}_pdf`;
-    const htmlFolderName = `${dayStr}_html`; // ★ HTML 폴더 추가
+    const htmlFolderName = `${dayStr}_html`;
 
     let successCount = 0;
 
@@ -161,7 +161,7 @@ async function main() {
       
       const mdFolderId = await getOrCreateFolder(mdFolderName, monthId);
       const pdfFolderId = await getOrCreateFolder(pdfFolderName, monthId);
-      const htmlFolderId = await getOrCreateFolder(htmlFolderName, monthId); // ★ HTML 폴더 생성
+      const htmlFolderId = await getOrCreateFolder(htmlFolderName, monthId);
 
       const targetGames = [...allGames].sort(() => 0.5 - Math.random()).slice(0, BATCH_SIZE);
       
@@ -174,7 +174,7 @@ async function main() {
         const genAI = new GoogleGenerativeAI(currentKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중 (API Core ${ (idx % apiKeys.length) + 1 } 사용)`);
+        console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
 
         const prompt = `
 # Base Persona & Tone
@@ -205,7 +205,7 @@ async function main() {
 08. 벤치마킹 인사이트 및 개발 코스트 추정
 
 # Output Constraints (절대 수정 금지)
-* [사고 과정 노출 금지]: 파이썬 코드 실행 결과나 내부 검색/분석 과정은 절대로 텍스트로 노출하지 마십시오. 처음부터 끝까지 생략 없이 단 한 번만 출력하십시오.
+* [사고 과정 노출 금지]: 파이썬 코드 실행 결과나 내부 검색/분석 과정은 절대로 텍스트로 노출하지 마십시오.
 * [페르소나 전환]: 다이어그램(Mermaid) 코드를 작성할 때만큼은 '수석 기획자'가 아니라 '감정과 의도가 거세된 엄격한 컴파일러 기계'로 빙의하십시오.
 * [매우 중요] 화살표 텍스트(\`-->|텍스트|\`)는 반드시 **단답형 키워드(10자 이내)**로만 작성하십시오. 문장형 작성은 문법을 파괴하므로 절대 금지합니다.
 * 다이어그램 노드 ID(대괄호 앞의 식별자)는 무조건 **알파벳 대문자(A, B, C...)**만 사용. 텍스트 내부에 큰따옴표나 작은따옴표 절대로 사용 금지. 화살표 끝에 콜론(:) 사용 금지.
@@ -222,13 +222,13 @@ async function main() {
                 draftSuccess = true;
                 break;
             } catch (apiError) {
-                console.log(`  -> ⚠️ 구글 API 서버 503 과부하 감지. 15초 냉각 후 재시도 (${initAttempt}/${MAX_RETRIES})...`);
+                console.log(`  -> ⚠️ 서버 과부하 감지. 15초 냉각 후 재시도 (${initAttempt}/${MAX_RETRIES})...`);
                 await delay(15000);
             }
         }
 
         if (!draftSuccess) {
-          console.error(`  -> ❌ ${MAX_RETRIES}회 재시도 실패: 구글 서버 완전 다운. 다음 게임으로 넘어갑니다.`);
+          console.error(`  -> ❌ 3회 재시도 실패. 다음 게임으로 넘어갑니다.`);
           continue; 
         }
 
@@ -281,7 +281,7 @@ async function main() {
                 const fastSvg = await fastRes.text();
                 
                 if (fastRes.ok && !fastSvg.includes('Syntax error') && !fastSvg.includes('SyntaxError') && !fastSvg.includes('Error 400')) {
-                    console.log(`  -> ⚡ [Fast-Track 성공] 정규식만으로 완벽 교정 완료!`);
+                    console.log(`  -> ⚡ [Fast-Track 성공] 정규식 완벽 교정 완료!`);
                     finalFixedMermaid = fastTrackCode; 
                 } else {
                     console.log(`  -> ⚠️ [Fast-Track 실패] AI 딥러닝 교정 루프 진입...`);
@@ -308,7 +308,6 @@ ${currentMermaid}
                                 qaResultText = res.response.text();
                                 break;
                             } catch(qaErr) {
-                                console.log(`  -> ⚠️ QA 중 구글 서버 연결 실패. 15초 대기 후 재시도...`);
                                 await delay(15000);
                             }
                         }
@@ -329,14 +328,13 @@ ${currentMermaid}
                                 await delay(15000); 
                                 break; 
                             } else {
-                                console.log(`  -> [시도 ${attempt}/${MAX_QA_RETRIES}] 렌더링 실패. AI에게 코드를 다시 반려합니다.`);
                                 currentMermaid = doubleCheckedCode; 
                             }
-                        } catch(qaError) { console.warn("QA 에러 발생, 재시도..."); }
+                        } catch(qaError) {}
                         await delay(15000); 
                     }
                     if (!qaSuccess) {
-                        console.log(`  -> 🚨 [최후 방어선] 2번의 AI 교정으로도 복구 불가능한 외계어 감지.`);
+                        console.log(`  -> 🚨 [최후 방어선] 외계어 감지. 스킵합니다.`);
                         isMermaidBroken = true;
                         break; 
                     }
@@ -356,45 +354,45 @@ ${currentMermaid}
         }
 
         if (isMermaidBroken) {
-            console.log(`  -> ⏭️ 해당 게임의 기획서를 구글 드라이브에 저장하지 않고 건너뜁니다 (Skip).`);
             if (idx < targetGames.length - 1) await delay(30000); 
             continue; 
         }
 
         const remainingText = reportText.substring(lastIndex);
         mdText += remainingText;
-        pdfText += remainingText; // 이 안에는 웹에서 바로 보이는 이미지 링크가 박혀있음
+        pdfText += remainingText;
 
         const safeTitle = luckyGame.title.replace(/[/\\?%*:|"<>]/g, '_');
         const baseFileName = `[${dateString}]_${String(luckyRank).padStart(3, '0')}위_${safeTitle}_(${coreSystemName})`;
 
         try {
-          // [1] 마크다운(.md) 파일 저장
+          // [1] 마크다운(.md) 저장
           const mdStream = new stream.PassThrough();
           mdStream.end(Buffer.from(mdText, 'utf8')); 
           await drive.files.create({
             requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] },
             media: { mimeType: 'text/markdown', body: mdStream }
           });
-          console.log(`  -> 💾 [MD] 저장 완료: ${mdFolderName}/${baseFileName}.md`);
+          console.log(`  -> 💾 [MD] 저장 완료`);
 
-          // [2] PDF(.pdf) 파일 변환 및 저장
-          console.log(`  -> 📄 [PDF] 변환 시작... (약 5초 소요)`);
+          // ★ [2] PDF 변환 (모던 UI CSS 업데이트)
+          console.log(`  -> 📄 [PDF] 변환 시작...`);
           const pdfData = await mdToPdf({ content: pdfText }, {
               launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] },
               css: `
-                  body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.6; color: #333; padding: 20px; }
-                  h1 { color: #111; font-size: 2em; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #eaeaea; }
-                  h2 { color: #222; font-size: 1.4em; margin-top: 2em; margin-bottom: 0.5em; border-bottom: 1px solid #eaeaea; padding-bottom: 5px; }
-                  h3 { color: #333; font-size: 1.2em; margin-top: 1.5em; }
-                  blockquote { border-left: 4px solid #d3d3d3; padding-left: 14px; color: #555; background-color: #f9f9f9; padding: 12px; border-radius: 4px; margin: 15px 0; }
-                  table { border-collapse: collapse; width: 100%; margin: 25px 0; font-size: 0.95em; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-                  th, td { border: 1px solid #ddd; padding: 12px 15px; text-align: left; }
-                  th { background-color: #f4f4f4; color: #333; font-weight: bold; }
-                  pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; margin: 15px 0; }
-                  code { font-family: monospace; font-size: 0.9em; color: #d63384; background-color: #f9f9f9; padding: 2px 5px; border-radius: 3px;}
-                  hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
-                  img { display: block; margin: 20px auto; max-width: 75%; max-height: 350px; width: auto; height: auto; page-break-inside: avoid; break-inside: avoid; }
+                  body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.7; color: #1F2937; padding: 20px; }
+                  h1 { font-size: 2.2em; font-weight: 800; border-bottom: 3px solid #4F46E5; padding-bottom: 12px; margin-bottom: 25px; color: #111827; }
+                  h2 { font-size: 1.5em; font-weight: 700; color: #4F46E5; margin-top: 2.2em; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; }
+                  h3 { font-size: 1.25em; font-weight: 600; color: #374151; margin-top: 1.5em; }
+                  blockquote { background-color: #EEF2FF; border-left: 5px solid #4F46E5; padding: 15px 20px; border-radius: 0 8px 8px 0; color: #4338CA; margin: 20px 0; font-weight: 500; font-size: 0.95em; }
+                  table { width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 0.95em; border-radius: 8px; overflow: hidden; }
+                  th, td { border: 1px solid #E5E7EB; padding: 12px 15px; text-align: left; }
+                  th { background-color: #F9FAFB; font-weight: 600; color: #111827; }
+                  pre { background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 15px 0; overflow-x: auto; }
+                  code { font-family: monospace; font-size: 0.9em; color: #DB2777; background-color: #F9FAFB; padding: 2px 5px; border-radius: 4px; }
+                  pre code { background-color: transparent; color: inherit; padding: 0; }
+                  hr { border: 0; height: 1px; background: #E5E7EB; margin: 30px 0; }
+                  img { display: block; margin: 30px auto; max-width: 80%; max-height: 400px; width: auto; height: auto; border-radius: 8px; page-break-inside: avoid; break-inside: avoid; }
               `,
               pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' } }
           });
@@ -404,13 +402,11 @@ ${currentMermaid}
             requestBody: { name: `${baseFileName}.pdf`, parents: [pdfFolderId] },
             media: { mimeType: 'application/pdf', body: pdfStream }
           });
-          console.log(`  -> 💾 [PDF] 저장 완료: ${pdfFolderName}/${baseFileName}.pdf`);
+          console.log(`  -> 💾 [PDF] 저장 완료`);
 
-          // ★ [3] HTML(.html) 파일 변환 및 저장 (NEW!)
+          // ★ [3] HTML 변환 (실리콘밸리 SaaS 대시보드 카드 UI 스타일)
           console.log(`  -> 🌐 [HTML] 변환 시작...`);
-          // marked 라이브러리로 pdfText(마크다운+이미지링크)를 HTML 태그로 파싱
           const parsedHtmlBody = marked.parse(pdfText); 
-          // PDF와 동일한 노션 스타일 CSS를 입혀서 완전한 HTML 웹문서로 조립
           const fullHtml = `
 <!DOCTYPE html>
 <html lang="ko">
@@ -419,22 +415,57 @@ ${currentMermaid}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${luckyGame.title} 역기획서</title>
     <style>
-        body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 40px 20px; }
-        h1 { color: #111; font-size: 2em; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #eaeaea; }
-        h2 { color: #222; font-size: 1.4em; margin-top: 2em; margin-bottom: 0.5em; border-bottom: 1px solid #eaeaea; padding-bottom: 5px; }
-        h3 { color: #333; font-size: 1.2em; margin-top: 1.5em; }
-        blockquote { border-left: 4px solid #d3d3d3; padding-left: 14px; color: #555; background-color: #f9f9f9; padding: 12px; border-radius: 4px; margin: 15px 0; }
-        table { border-collapse: collapse; width: 100%; margin: 25px 0; font-size: 0.95em; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        th, td { border: 1px solid #ddd; padding: 12px 15px; text-align: left; }
-        th { background-color: #f4f4f4; color: #333; font-weight: bold; }
-        pre { background-color: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; margin: 15px 0; }
-        code { font-family: monospace; font-size: 0.9em; color: #d63384; background-color: #f9f9f9; padding: 2px 5px; border-radius: 3px;}
-        hr { border: none; border-top: 1px solid #ddd; margin: 30px 0; }
-        img { display: block; margin: 30px auto; max-width: 90%; height: auto; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        :root {
+            --primary: #4F46E5; 
+            --bg: #F3F4F6;
+            --card-bg: #FFFFFF;
+            --text-main: #1F2937;
+            --border: #E5E7EB;
+        }
+        body { 
+            font-family: 'Pretendard', -apple-system, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text-main); 
+            line-height: 1.75; 
+            margin: 0; 
+            padding: 40px 20px; 
+        }
+        .report-container { 
+            max-width: 900px; 
+            margin: 0 auto; 
+            background: var(--card-bg); 
+            padding: 50px 70px; 
+            border-radius: 24px; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+        }
+        h1 { font-size: 2.4em; font-weight: 800; color: #111827; border-bottom: 4px solid var(--primary); padding-bottom: 15px; margin-bottom: 30px; letter-spacing: -0.02em; }
+        h2 { font-size: 1.6em; font-weight: 700; color: var(--primary); margin-top: 2.5em; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        h3 { font-size: 1.3em; font-weight: 600; color: #374151; margin-top: 1.8em; }
+        blockquote { background: #EEF2FF; border-left: 5px solid var(--primary); padding: 20px; margin: 25px 0; border-radius: 0 12px 12px 0; color: #4338CA; font-weight: 500; font-size: 1.05em; }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 30px 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        th { background-color: #F9FAFB; padding: 16px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--border); color: #374151; }
+        td { padding: 16px; border-bottom: 1px solid var(--border); }
+        tr:last-child td { border-bottom: none; }
+        pre { background: #1E293B; color: #F8FAFC; padding: 20px; border-radius: 12px; overflow-x: auto; margin: 20px 0; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06); }
+        code { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; background: #F1F5F9; color: #E11D48; padding: 4px 8px; border-radius: 6px; }
+        pre code { background: transparent; color: inherit; padding: 0; }
+        img { display: block; margin: 40px auto; max-width: 90%; height: auto; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        hr { border: 0; height: 1px; background: var(--border); margin: 40px 0; }
+        
+        /* 모바일 최적화 */
+        @media (max-width: 768px) {
+            body { padding: 15px 10px; }
+            .report-container { padding: 30px 20px; border-radius: 16px; }
+            h1 { font-size: 1.8em; }
+            h2 { font-size: 1.4em; }
+        }
     </style>
 </head>
 <body>
-    ${parsedHtmlBody}
+    <div class="report-container">
+        ${parsedHtmlBody}
+    </div>
 </body>
 </html>`;
           
@@ -444,7 +475,7 @@ ${currentMermaid}
             requestBody: { name: `${baseFileName}.html`, parents: [htmlFolderId] },
             media: { mimeType: 'text/html', body: htmlStream }
           });
-          console.log(`  -> 💾 [HTML] 저장 완료: ${htmlFolderName}/${baseFileName}.html`);
+          console.log(`  -> 💾 [HTML] 저장 완료`);
 
           successCount++;
           
