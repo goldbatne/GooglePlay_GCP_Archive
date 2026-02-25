@@ -1,0 +1,36 @@
+name: Drive Backup Copier
+
+# 메인 크롤링 작업이 성공적으로 완료되었을 때만 자동으로 트리거됨
+on:
+  workflow_run:
+    workflows: ["GCP Data Lake Archive"] # ★ 주의: 기존 메인 yml 파일의 'name' 속성과 정확히 일치해야 합니다!
+    types:
+      - completed
+  workflow_dispatch: # 수동 실행 버튼 활성화
+
+jobs:
+  copy_files:
+    runs-on: ubuntu-latest
+    # 메인 작업이 '성공'했을 때만 실행되도록 조건 추가
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install googleapis
+
+      - name: Run Copy Script
+        env:
+          GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
+          GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
+          GCP_REFRESH_TOKEN: ${{ secrets.GCP_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }} # 원본 타겟
+          TARGET_GDRIVE_FOLDER_ID: ${{ secrets.TARGET_GDRIVE_FOLDER_ID }} # 사본 타겟 (새로 추가한 시크릿)
+        run: node copy.js
