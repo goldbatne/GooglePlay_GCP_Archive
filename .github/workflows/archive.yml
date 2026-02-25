@@ -2,7 +2,7 @@ name: GCP Data Lake Archive
 
 on:
   schedule:
-    - cron: '30 15 * * *' 
+    - cron: '30 20 * * *' 
   workflow_dispatch: 
 
 jobs:
