@@ -178,19 +178,24 @@ async function main() {
         const genAI = new GoogleGenerativeAI(currentKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+        // ★ [NEW] 대표님의 지시를 반영하여 10대 기획 도메인으로 스펙트럼 확장
         const categories = [
             "핵심 BM (가챠/강화/패스 등 직접적 매출원)",
             "장기 리텐션 (일일 숙제/업적/마일리지 등 접속 유지 장치)",
             "소셜 및 경쟁 (길드/PvP/랭킹 등 유저 간 상호작용)",
             "성장 및 경제 (재화 획득/소모처 및 인플레이션 제어 로직)",
-            "코어 게임플레이 (전투 공식/스테이지 기믹/퍼즐 등 조작의 재미)"
+            "코어 게임플레이 (전투 공식/스테이지 기믹/퍼즐 등 조작의 재미)",
+            "캐릭터 및 전투 클래스 (스킬 메커니즘/시너지/상성 구조)",
+            "수치 및 전투 밸런스 (데미지 공식/스테이터스/성장 체감)",
+            "레벨 디자인 (맵 구조/동선/오브젝트 배치/몬스터 스폰)",
+            "세계관 및 시나리오 (퀘스트 라인/내러티브/NPC 상호작용)",
+            "핵심 콘텐츠 시스템 (레이드/던전/생활형 콘텐츠 등 주요 시스템)"
         ];
         const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
         console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}]`);
 
-        // ★ 프롬프트 업데이트: 한국 서버 기준 공식 명칭 강제
         const prompt = `
 # Base Persona & Tone
 - 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 기획은 정답 맞추기가 아니라 '문장으로 회사(자본)를 설득하는 영역'임을 완벽히 이해하고 있습니다.
@@ -206,9 +211,10 @@ async function main() {
 서브장르: (15자 이내 자유 형식)
 시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
 
-# Step 1: 정확한 인게임 고유명사 타겟팅
-1. 2026년 오늘 날짜를 기준으로 검색하여, 타겟 게임에서 **[${randomCategory}]** 영역을 대표하는 시그니처 시스템 1개를 특정하십시오.
-2. 이때 '캐릭터 뽑기', '길드전', '강화' 같은 제너릭한 일반 명사를 절대 사용하지 마십시오. 반드시 해당 게임의 **한국 서버 기준 정확한 공식 인게임 고유명사(예: '원신 - 기원', '리니지 - 공성전', '승리의 여신: 니케 - 싱크로 디바이스')**를 최우선으로 검색하여 분석 대상으로 명시하고 이를 기반으로 역기획을 전개하십시오. 영문 직역은 피하십시오.
+# Step 1: 실제 게임 내 UI 표기 명칭 타겟팅 (가장 중요)
+1. 2026년 오늘 날짜를 기준으로 검색을 수행하여, 타겟 게임에서 **[${randomCategory}]** 영역을 대표하는 시그니처 시스템 1개를 특정하십시오.
+2. '캐릭터 뽑기', '길드전' 같은 제너릭한 일반 명사나 마케팅용 보도자료 용어 사용을 엄격히 금지합니다.
+3. 반드시 유저가 게임 접속 후 **'실제 한국 서버 클라이언트 화면(UI)에서 직접 확인하고 클릭할 수 있는 버튼, 메뉴, 탭의 정확한 텍스트'**(예: 원신 - '기원', 승리의 여신: 니케 - '싱크로 디바이스')를 최우선으로 검색하여 분석 대상으로 명시하십시오. 영문 직역은 피하십시오.
 
 # Step 2: 실무형 역기획서 작성 (Strict Format)
 아래 8단계 구조에 맞춰 마크다운 형식으로 작성하십시오.
@@ -240,7 +246,6 @@ async function main() {
                 draftSuccess = true;
                 break;
             } catch (apiError) {
-                // ★ [NEW] 메인 루프 동적 쿨타임 처리
                 const errMsg = apiError.message || "";
                 console.log(`  -> 🚨 에러 원인: ${errMsg.substring(0, 120).replace(/\n/g, ' ')}...`); 
                 
@@ -339,7 +344,6 @@ ${currentMermaid}
                                 qaResultText = res.response.text();
                                 break;
                             } catch(qaErr) {
-                                // ★ [NEW] QA 루프 동적 쿨타임 처리
                                 const errMsg = qaErr.message || "";
                                 let waitTime = 15000;
                                 const match = errMsg.match(/retry in (\d+(?:\.\d+)?)s/i);
