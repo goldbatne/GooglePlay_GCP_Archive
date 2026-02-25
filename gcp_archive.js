@@ -14,7 +14,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const ROOT_FOLDER_ID = process.env.GDRIVE_FOLDER_ID;
-const BATCH_SIZE = 100; // ★ 매일 100개 풀가동 모드 확정
+const BATCH_SIZE = 50; // ★ 깃허브 6시간 런타임 한계 회피 및 Top 50 정예화
 const MAX_RETRIES = 3; 
 
 const apiKeys = (process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(k => k.length > 0);
@@ -178,7 +178,6 @@ async function main() {
         const genAI = new GoogleGenerativeAI(currentKey);
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // ★ [NEW] 대표님의 지시를 반영하여 10대 기획 도메인으로 스펙트럼 확장
         const categories = [
             "핵심 BM (가챠/강화/패스 등 직접적 매출원)",
             "장기 리텐션 (일일 숙제/업적/마일리지 등 접속 유지 장치)",
@@ -189,13 +188,18 @@ async function main() {
             "수치 및 전투 밸런스 (데미지 공식/스테이터스/성장 체감)",
             "레벨 디자인 (맵 구조/동선/오브젝트 배치/몬스터 스폰)",
             "세계관 및 시나리오 (퀘스트 라인/내러티브/NPC 상호작용)",
-            "핵심 콘텐츠 시스템 (레이드/던전/생활형 콘텐츠 등 주요 시스템)"
+            "핵심 콘텐츠 시스템 (레이드/던전/생활형 콘텐츠 등 주요 시스템)",
+            "UI/UX 및 편의성 설계 (HUD 배치/메뉴 뎁스/단축키/조작감)", 
+            "라이브 옵스 및 이벤트 기획 (시즌 이벤트/픽업 로테이션/출석부)",
+            "메타 게임 및 서브 콘텐츠 (도감 수집/하우징/미니게임/꾸미기)",
+            "온보딩 및 튜토리얼 (초반 동선/가이드 로직/이탈 방지 장치)"
         ];
         const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
         console.log(`\n[${idx + 1}/${BATCH_SIZE}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
         console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}]`);
 
+        // ★ 프롬프트 업데이트: '분석 문서'로 명칭 일괄 변경
         const prompt = `
 # Base Persona & Tone
 - 당신은 15년 차 수석 게임 시스템 기획자이자 실무 디렉터입니다. 기획은 정답 맞추기가 아니라 '문장으로 회사(자본)를 설득하는 영역'임을 완벽히 이해하고 있습니다.
@@ -216,7 +220,7 @@ async function main() {
 2. '캐릭터 뽑기', '길드전' 같은 제너릭한 일반 명사나 마케팅용 보도자료 용어 사용을 엄격히 금지합니다.
 3. 반드시 유저가 게임 접속 후 **'실제 한국 서버 클라이언트 화면(UI)에서 직접 확인하고 클릭할 수 있는 버튼, 메뉴, 탭의 정확한 텍스트'**(예: 원신 - '기원', 승리의 여신: 니케 - '싱크로 디바이스')를 최우선으로 검색하여 분석 대상으로 명시하십시오. 영문 직역은 피하십시오.
 
-# Step 2: 실무형 역기획서 작성 (Strict Format)
+# Step 2: 실무형 분석 문서 작성 (Strict Format)
 아래 8단계 구조에 맞춰 마크다운 형식으로 작성하십시오.
 01. 시스템 정의 및 ROI
 02. 콘텐츠 코어 루프 (Mermaid \`graph LR\`)
@@ -282,8 +286,9 @@ async function main() {
                                .replace(/서브장르:.*?\n/g, '')
                                .replace(/시스템:.*?\n/g, '').trim();
 
+        // ★ [NEW] 헤더 텍스트 '분석 문서'로 변경
         const cleanHeader = `
-# [${luckyRank}위] ${luckyGame.title} 역기획서
+# [${luckyRank}위] ${luckyGame.title} 분석 문서
 > **분석 타겟:** ${randomCategory}
 > **핵심 시스템:** ${coreSystemName}
 > **개발사:** ${luckyGame.developer}
@@ -466,13 +471,14 @@ ${currentMermaid}
           const parsedHtmlBody = marked.parse(pdfText); 
           if (!parsedHtmlBody || parsedHtmlBody.trim() === "") throw new Error("HTML 파싱 결과가 비어있습니다.");
 
+          // ★ [NEW] HTML 타이틀 '분석 문서'로 변경
           const fullHtml = `
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${luckyGame.title} 역기획서</title>
+    <title>${luckyGame.title} 분석 문서</title>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         :root { --primary: #4F46E5; --bg: #F3F4F6; --card-bg: #FFFFFF; --text-main: #1F2937; --border: #E5E7EB; }
