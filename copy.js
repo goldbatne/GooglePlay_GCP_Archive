@@ -75,20 +75,31 @@ async function copyFilesForFormat(format, yearStr, monthStr, dayStr) {
 
     console.log(`  -> 📂 총 ${filesToCopy.length}개의 원본 파일을 발견했습니다. 복사를 시작합니다.`);
 
-    // 4. 복사 실행 (API 제한을 막기 위해 1초씩 딜레이)
+    // 4. 복사 실행 (★ 업그레이드: 구글 서버 Internal Error 방어용 3회 재시도 로직 장착)
     let copyCount = 0;
     for (const file of filesToCopy) {
-        try {
-            await drive.files.copy({
-                fileId: file.id,
-                requestBody: { name: file.name, parents: [tgtDayId] } // 원본 이름 그대로, 타겟 폴더에 생성
-            });
-            copyCount++;
-            process.stdout.write(`.`); // 진행 상황 점 찍기
-            await delay(1000); // ★ 구글 드라이브 쓰기 API 제한 방어선 (1초)
-        } catch (err) {
-            console.error(`\n  -> ❌ 복사 실패 [${file.name}]: ${err.message}`);
+        let success = false;
+        
+        for (let retry = 1; retry <= 3; retry++) {
+            try {
+                await drive.files.copy({
+                    fileId: file.id,
+                    requestBody: { name: file.name, parents: [tgtDayId] } // 원본 이름 그대로, 타겟 폴더에 생성
+                });
+                success = true;
+                process.stdout.write(`.`); // 진행 상황 점 찍기
+                await delay(1000); // 구글 드라이브 쓰기 API 제한 방어선 (1초)
+                break; // 성공 시 재시도 루프 탈출
+            } catch (err) {
+                if (retry === 3) {
+                    console.error(`\n  -> ❌ 복사 최종 실패 [${file.name}]: ${err.message}`);
+                } else {
+                    // 구글 서버 일시적 에러 시 2초 대기 후 재시도
+                    await delay(2000);
+                }
+            }
         }
+        if (success) copyCount++;
     }
     console.log(`\n  -> ✅ [${format.toUpperCase()}] 복사 완료: ${copyCount}/${filesToCopy.length}개 성공`);
 }
