@@ -10,7 +10,7 @@ oauth2Client.setCredentials({ refresh_token: process.env.GCP_REFRESH_TOKEN });
 const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
 const SOURCE_ROOT_ID = process.env.GDRIVE_FOLDER_ID; // 원본
-const PUBLIC_SHOWROOM_ID = process.env.PUBLIC_SHOWROOM_ID; // 대외 공유용 쇼룸 (신규 타겟)
+const PUBLIC_GDRIVE_FOLDER_ID = process.env.PUBLIC_GDRIVE_FOLDER_ID; // 대외 공유용 쇼룸 (변수명 통일)
 
 async function getFolderIdByNameAndParent(folderName, parentId) {
     try {
@@ -44,14 +44,14 @@ async function main() {
     const monthStr = String(now.getMonth() + 1).padStart(2, '0') + "월"; 
     const dayStr = String(now.getDate()).padStart(2, '0') + "일"; 
 
-    if (!PUBLIC_SHOWROOM_ID) {
-        console.error("❌ PUBLIC_SHOWROOM_ID 시크릿이 없습니다. 엔진을 정지합니다.");
+    if (!PUBLIC_GDRIVE_FOLDER_ID) {
+        console.error("❌ PUBLIC_GDRIVE_FOLDER_ID 시크릿이 없습니다. 엔진을 정지합니다.");
         process.exit(1);
     }
 
     try {
         // 1. 쇼룸 최상위는 순수한 연/월 2-Depth 유지
-        const tgtYearId = await getOrCreateFolder(yearStr, PUBLIC_SHOWROOM_ID);
+        const tgtYearId = await getOrCreateFolder(yearStr, PUBLIC_GDRIVE_FOLDER_ID);
         const tgtMonthId = await getOrCreateFolder(monthStr, tgtYearId);
 
         // ★ 오직 pdf와 html만 타겟팅 (md 배제)
