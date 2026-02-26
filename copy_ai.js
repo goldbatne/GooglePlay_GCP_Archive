@@ -12,7 +12,7 @@ const drive = google.drive({ version: 'v3', auth: oauth2Client });
 const SOURCE_ROOT_ID = process.env.GDRIVE_FOLDER_ID; // 원본 최상위 폴더
 const AI_WORKSPACE_ID = process.env.AI_WORKSPACE_FOLDER_ID; // AI 전용 샌드박스 폴더
 
-// 폴더 검색 전용 헬퍼 (타겟 폴더 생성 로직은 삭제됨 - Flat 구조 유지)
+// 폴더 검색 전용 헬퍼
 async function getFolderIdByNameAndParent(folderName, parentId) {
     try {
         const res = await drive.files.list({
@@ -24,8 +24,21 @@ async function getFolderIdByNameAndParent(folderName, parentId) {
     } catch (err) { return null; }
 }
 
+// 폴더 생성/검색 헬퍼 (타겟 폴더 생성용 부활)
+async function getOrCreateFolder(folderName, parentId) {
+    try {
+        let folderId = await getFolderIdByNameAndParent(folderName, parentId);
+        if (folderId) return folderId;
+        const folder = await drive.files.create({
+            resource: { name: folderName, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] },
+            fields: 'id',
+        });
+        return folder.data.id;
+    } catch (err) { return parentId; }
+}
+
 async function main() {
-    console.log("🤖 [AI 워크스페이스] MD 파일 전용 플랫(Flat) 덤프 엔진 가동");
+    console.log("🤖 [AI 워크스페이스] MD 파일 전용 연/월 관리형 덤프 엔진 가동");
     const now = new Date();
     now.setHours(now.getHours() + 9); // KST
     
@@ -53,7 +66,11 @@ async function main() {
         const srcDayId = await getFolderIdByNameAndParent(`${dayStr}_md`, srcMonthId);
         if (!srcDayId) { console.log(`  -> ⚠️ 원본 일(${dayStr}_md) 폴더 없음. 오늘 생성된 데이터가 없습니다.`); return; }
 
-        // 2. 해당 폴더의 MD 파일 목록 스크래핑
+        // 2. AI 워크스페이스 내부에 연/월(Year/Month) 폴더 구축
+        const tgtYearId = await getOrCreateFolder(yearStr, AI_WORKSPACE_ID);
+        const tgtMonthId = await getOrCreateFolder(monthStr, tgtYearId);
+
+        // 3. 해당 폴더의 MD 파일 목록 스크래핑
         let pageToken = null;
         let filesToCopy = [];
         do {
@@ -67,9 +84,9 @@ async function main() {
             pageToken = res.data.nextPageToken;
         } while (pageToken);
 
-        console.log(`  -> 📂 총 ${filesToCopy.length}개의 MD 파일을 발견했습니다. AI 샌드박스 적재를 시작합니다.`);
+        console.log(`  -> 📂 총 ${filesToCopy.length}개의 MD 파일을 발견했습니다. [${yearStr} ${monthStr}] 폴더로 적재를 시작합니다.`);
 
-        // 3. 복사 실행 (AI_WORKSPACE_ID 최상위에 폴더 없이 그대로 투척)
+        // 4. 복사 실행 (생성된 연/월 타겟 폴더 내부에 투척)
         let copyCount = 0;
         for (const file of filesToCopy) {
             let success = false;
@@ -77,11 +94,11 @@ async function main() {
                 try {
                     await drive.files.copy({
                         fileId: file.id,
-                        requestBody: { name: file.name, parents: [AI_WORKSPACE_ID] }
+                        requestBody: { name: file.name, parents: [tgtMonthId] } // 연/월 폴더로 타겟 변경
                     });
                     success = true;
-                    process.stdout.write(`*`); // AI 복사 진행률 (별표)
-                    await delay(1000); // API 레이트 리밋 방어 (1초)
+                    process.stdout.write(`*`); // AI 복사 진행률
+                    await delay(1000); 
                     break; 
                 } catch (err) {
                     if (retry === 3) {
@@ -93,7 +110,7 @@ async function main() {
             }
             if (success) copyCount++;
         }
-        console.log(`\n🎉 AI 전용 적재 완료: ${copyCount}/${filesToCopy.length}개 성공`);
+        console.log(`\n🎉 AI 전용 연/월 적재 완료: ${copyCount}/${filesToCopy.length}개 성공`);
 
     } catch (e) {
         console.error("치명적 복사 에러:", e);
