@@ -26,7 +26,7 @@ jobs:
         env:
           START_RANK: 1
           END_RANK: 3 # ★ 정확히 3개만 추출하도록 물리적 차단
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_TOP }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_BOTTOM }}
           GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
           GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
           GCP_REFRESH_TOKEN: ${{ secrets.GCP_REFRESH_TOKEN }}
