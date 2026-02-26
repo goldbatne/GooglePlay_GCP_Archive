@@ -156,21 +156,19 @@ async function main() {
         if (allGames.length > 0) {
             const mainYearId = await getOrCreateFolder(yearStr, ROOT_FOLDER_ID);
             
-            const mdFormatId = await getOrCreateFolder(`${yearStr}_md`, mainYearId);
+            // ★ MD 폴더 생성 로직 삭제됨
             const pdfFormatId = await getOrCreateFolder(`${yearStr}_pdf`, mainYearId);
             const htmlFormatId = await getOrCreateFolder(`${yearStr}_html`, mainYearId);
 
-            const mdMonthId = await getOrCreateFolder(`${monthStr}_md`, mdFormatId);
             const pdfMonthId = await getOrCreateFolder(`${monthStr}_pdf`, pdfFormatId);
             const htmlMonthId = await getOrCreateFolder(`${monthStr}_html`, htmlFormatId);
 
-            const mdFolderId = await getOrCreateFolder(`${dayStr}_md`, mdMonthId);
             const pdfFolderId = await getOrCreateFolder(`${dayStr}_pdf`, pdfMonthId);
             const htmlFolderId = await getOrCreateFolder(`${dayStr}_html`, htmlMonthId);
 
             const targetGames = allGames.slice(START_RANK - 1, END_RANK);
             
-            console.log(`\n[${dateString}] 🗄️ 검색 탑재형 코어 병렬 엔진 가동 (${START_RANK}위 ~ ${END_RANK}위) [MD 생략 테스트 모드]`);
+            console.log(`\n[${dateString}] 🗄️ 검색 탑재형 코어 병렬 엔진 가동 (${START_RANK}위 ~ ${END_RANK}위) [PDF/HTML 전용 테스트 모드]`);
             for (let idx = 0; idx < targetGames.length; idx++) {
                 const luckyGame = targetGames[idx];
                 const luckyRank = luckyGame.actualRank; 
@@ -210,7 +208,6 @@ async function main() {
                 const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
                 console.log(`\n[진행률: ${idx + 1}/${targetGames.length}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
-                console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}] / 출시일: ${releaseDate}`);
 
                 const prompt = `
 # Base Persona & Tone
@@ -315,14 +312,12 @@ async function main() {
                 reportText = cleanHeader + reportText;
 
                 const mermaidRegex = /```mermaid\s*([\s\S]*?)```/gi;
-                let mdText = "";  
-                let pdfText = ""; 
+                let pdfText = ""; // ★ mdText 변수 완전 삭제
                 let lastIndex = 0;
                 let isMermaidBroken = false; 
                 
                 for (const match of [...reportText.matchAll(mermaidRegex)]) {
                     const preText = reportText.substring(lastIndex, match.index);
-                    mdText += preText;
                     pdfText += preText;
 
                     let originalMermaid = match[1];
@@ -339,7 +334,7 @@ async function main() {
                             console.log(`  -> ⚡ [Fast-Track 성공] 정규식 완벽 교정 완료!`);
                             finalFixedMermaid = fastTrackCode; 
                         } else {
-                            console.log(`  -> ⚠️ [Fast-Track 실패] AI 딥러닝 교정 루프 진입...`);
+                            console.log(`  -> ⚠️ [Fast-Track 실패] AI 교정 루프 진입...`);
                             const MAX_QA_RETRIES = 5; 
                             let currentMermaid = originalMermaid;
                             let qaSuccess = false;
@@ -369,9 +364,6 @@ ${currentMermaid}
                                         const match = errMsg.match(/retry in (\d+(?:\.\d+)?)s/i);
                                         if (match) {
                                             waitTime = (Math.ceil(parseFloat(match[1])) + 2) * 1000;
-                                            console.log(`  -> ⏱️ [QA] 구글 서버 지시 수신: ${waitTime/1000}초 냉각...`);
-                                        } else {
-                                            console.log(`  -> ⚠️ [QA] 기본 15초 냉각 진입...`);
                                         }
                                         await delay(waitTime);
                                     }
@@ -406,7 +398,6 @@ ${currentMermaid}
                         }
 
                         if (!isMermaidBroken) {
-                            mdText += "```mermaid\n" + finalFixedMermaid + "\n```"; 
                             const finalRenderUrl = getKrokiUrl(finalFixedMermaid);
                             pdfText += `\n\n![시스템 다이어그램](${finalRenderUrl})\n\n`; 
                         }
@@ -424,34 +415,13 @@ ${currentMermaid}
                 }
 
                 const remainingText = reportText.substring(lastIndex);
-                mdText += remainingText;
                 pdfText += remainingText;
 
                 const safeTitle = luckyGame.title.replace(/[/\\?%*:|"<>]/g, '_');
                 const baseFileName = `[${dateString}]_${String(luckyRank).padStart(3, '0')}위_${safeTitle}_(${coreSystemName})`;
 
-                let mdSaved = true; // ★ [테스트용 강제 True] MD 저장 단계를 바이패스합니다.
                 let pdfSaved = false;
                 let htmlSaved = false;
-
-                // ==============================================================
-                // ★ [테스트 모드] MD 구글 드라이브 업로드 로직 완전 주석 처리
-                // ==============================================================
-                //console.log(`  -> 🛑 [MD] 테스트 모드: 드라이브 업로드를 생략합니다.`);
-                /*
-                try {
-                  if (!mdText || mdText.length < 10) throw new Error("MD 데이터가 비어있습니다.");
-                  const mdStream = new stream.PassThrough();
-                  mdStream.end(Buffer.from(mdText, 'utf8')); 
-                  await drive.files.create({
-                    requestBody: { name: `${baseFileName}.md`, parents: [mdFolderId] }, 
-                    media: { mimeType: 'text/markdown', body: mdStream }
-                  });
-                  console.log(`  -> 💾 [MD] 저장 완료`);
-                  mdSaved = true;
-                } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
-                */
-                // ==============================================================
 
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
@@ -539,10 +509,11 @@ ${currentMermaid}
                   htmlSaved = true;
                 } catch (e) { console.error(`  -> ❌ [HTML] 변환/저장 실패: ${e.message}`); }
 
-                if (mdSaved && pdfSaved && htmlSaved) {
+                // ★ mdSaved 조건 완벽히 삭제됨
+                if (pdfSaved && htmlSaved) {
                     successCount++;
-                } else if (mdSaved || pdfSaved || htmlSaved) {
-                    console.log(`  -> ⚠️ 일부 포맷 저장 실패 (MD:${mdSaved}, PDF:${pdfSaved}, HTML:${htmlSaved})`);
+                } else if (pdfSaved || htmlSaved) {
+                    console.log(`  -> ⚠️ 일부 포맷 저장 실패 (PDF:${pdfSaved}, HTML:${htmlSaved})`);
                     successCount++; 
                 } else {
                     console.error(`  -> ❌ 모든 포맷 저장 실패`);
@@ -554,7 +525,7 @@ ${currentMermaid}
             console.log(`\n======================================================`);
             console.log(`[${dateString}] 📊 최종 결산 리포트`);
             console.log(`- 목표 처리량: ${targetGames.length}개`);
-            console.log(`- 적재 성공량 (MD/PDF/HTML 중 1개 이상 생존): ${successCount}개`);
+            console.log(`- 적재 성공량 (PDF/HTML 중 1개 이상 생존): ${successCount}개`);
             console.log(`- 완전 폐기량: ${targetGames.length - successCount}개`);
             console.log(`🎉 구글 드라이브 동기화 작업이 모두 종료되었습니다.`);
             console.log(`======================================================\n`);
