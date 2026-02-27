@@ -221,17 +221,17 @@ async function main() {
                 console.log(`\n[진행률: ${idx + 1}/${targetGames.length}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
                 console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}] / 출시일: ${releaseDate}`);
 
+                // ★ [최종 진화] 메타데이터 출력은 깔끔하게 원복, 단 '투트랙 검색 로직'은 머릿속에 유지!
                 const prompt = `
 # Input
 * **타겟 게임:** [${luckyGame.developer}]의 ${luckyGame.title} (구글 매출 ${luckyRank}위)
 * **분석 타겟 영역:** ${randomCategory}
 
 # Step 0: 메타데이터 정의 (절대 수정 금지)
-최상단에 반드시 다음 4줄을 작성하십시오.
+최상단에 반드시 다음 3줄을 작성하십시오.
 메인장르: (반드시 다음 10개 중 하나만 선택: RPG, MMORPG, 방치형, SLG/전략, 캐주얼/퍼즐, 액션/슈팅, SNG/시뮬레이션, 스포츠/레이싱, 카지노/보드, 기타)
 서브장르: (15자 이내 자유 형식)
 시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
-실제개발사: (검색으로 파악한 이 게임의 원작 개발 스튜디오명. 만약 퍼블리셔와 같다면 동일하게 기재)
 
 # Step 1: 실제 게임 내 UI 표기 명칭 타겟팅
 1. 타겟 게임에서 **[${randomCategory}]** 영역을 대표하는 시그니처 시스템 1개를 특정하십시오.
@@ -250,7 +250,7 @@ async function main() {
 09. **참고 문헌 및 팩트 체크 출처** (★ 필수: 이 분석을 위해 구글 검색에서 참조한 실제 URL 웹 링크를 최소 2개 이상 리스트업 하십시오.)
 
 # ★ [핵심] 개발사-퍼블리셔 교차 검증 및 국가별 맞춤 검색 (Dynamic Grounding)
-1. **주체 식별**: 제공된 법인명([${luckyGame.developer}])은 구글플레이에 등록된 '퍼블리셔(Publisher)'입니다. 구글 검색을 통해 이 게임의 **'실제 원작 개발사(Developer)'**가 어디인지 먼저 식별하십시오.
+1. **주체 식별**: 제공된 법인명([${luckyGame.developer}])은 구글플레이에 등록된 '퍼블리셔(Publisher)'입니다. 구글 검색을 통해 이 게임의 **'실제 원작 개발사(Developer)'**가 어디인지 파악하십시오.
 2. **투트랙(Two-Track) 검색**: 
    - 퍼블리셔와 개발사가 다른 경우 (예: 한국 개발사 + 중국 글로벌 퍼블리셔 등), **개발사 본진의 코어 로직 커뮤니티**와 **퍼블리셔가 주도하는 라이브 운영 지표(BM/패치노트)**를 모두 검색하여 교차 검증하십시오.
    - 글로벌 게임은 "{게임명} Reddit", "{게임명} Fandom Wiki", 한국 내수 게임은 "{게임명} 공식 라운지/인벤" 등을 우선 타겟팅하십시오.
@@ -313,23 +313,17 @@ async function main() {
                     coreSystemName = systemMatch[1].replace(/\[\/META\]/gi, '').replace(/[/\\?%*:|"<>]/g, '_').trim();
                 }
 
-                let realDeveloper = luckyGame.developer; 
-                const devMatch = reportText.match(/실제개발사:\s*([^\n]+)/);
-                if (devMatch) {
-                    realDeveloper = devMatch[1].replace(/\[\/META\]/gi, '').trim();
-                }
-
+                // ★ [최종 진화] 파싱 시 '실제개발사' 관련 로직 완전 삭제, 오리지널로 원복
                 reportText = reportText.replace(/메인장르:.*?\n/g, '')
                                        .replace(/서브장르:.*?\n/g, '')
-                                       .replace(/시스템:.*?\n/g, '')
-                                       .replace(/실제개발사:.*?\n/g, '').trim();
+                                       .replace(/시스템:.*?\n/g, '').trim();
 
+                // ★ [최종 진화] 문서 헤더도 대표님의 깔끔한 오리지널 스타일로 롤백 완료
                 const cleanHeader = `
 # [${luckyRank}위] ${luckyGame.title} 분석 문서
 > **분석 타겟:** ${randomCategory}
 > **핵심 시스템:** ${coreSystemName}
-> **퍼블리셔:** ${luckyGame.developer}
-> **실제 개발사:** ${realDeveloper}
+> **개발사:** ${luckyGame.developer}
 > **작성일:** ${dateString}
 > **출시일:** ${releaseDate}
 
@@ -420,7 +414,6 @@ ${currentMermaid}
                                 } catch(qaError) {}
                                 await delay(15000); 
                             }
-                            // ★ [안전 스킵]
                             if (!qaSuccess) {
                                 console.log(`  -> 🚨 [최후 방어선] 외계어 감지. 해당 게임 분석을 스킵합니다.`);
                                 isMermaidBroken = true;
@@ -441,7 +434,6 @@ ${currentMermaid}
                     lastIndex = match.index + match[0].length;
                 }
 
-                // ★ [완벽 스킵 로직] PDF/HTML 저장 프로세스를 타지 않고 바로 건너뜀
                 if (isMermaidBroken) {
                     skippedCount++;
                     console.log(`  -> ⏭️ [AUTO-SKIP] 다이어그램 파손으로 인해 PDF/HTML 생성을 생략하고 다음 게임으로 넘어갑니다.`);
@@ -472,7 +464,6 @@ ${currentMermaid}
                   mdSaved = true;
                 } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
 
-                // ★ [PDF 디자인 원복] 대표님의 오리지널 레퍼런스 적용
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
                   const pdfData = await mdToPdf({ content: pdfText }, {
@@ -509,7 +500,6 @@ ${currentMermaid}
                   pdfSaved = true;
                 } catch (e) { console.error(`  -> ❌ [PDF] 변환/저장 실패: ${e.message}`); }
 
-                // ★ [HTML 디자인 원복] 대표님의 오리지널 레퍼런스 적용
                 try {
                   console.log(`  -> 🌐 [HTML] 변환 시작...`);
                   const parsedHtmlBody = marked.parse(pdfText); 
