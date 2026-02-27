@@ -192,7 +192,7 @@ async function main() {
                 const draftModel = genAI.getGenerativeModel({ 
                     model: "gemini-2.5-flash",
                     tools: [{ googleSearch: {} }],
-                    systemInstruction: "당신은 15년 차 수석 게임 시스템 기획자입니다. 빈말이나 과도한 칭찬을 배제하고 사실 기반으로만 작성하십시오. 데이터가 부족한 양산형 게임의 경우 억지로 지어내지 말고 오직 [ABORT_NO_DATA]만 출력하십시오."
+                    systemInstruction: "당신은 인간의 심리를 꿰뚫어 보는 15년 차 수석 게임 시스템 기획자이자 디렉터입니다. 단순 리뷰어의 감상평은 배제하고, 제공된 레퍼런스(역기획서) 양식에 맞춰 완벽한 '시스템 해부 및 심리 분석 명세서'를 작성하십시오. 데이터가 부족한 양산형 게임의 경우 억지로 지어내지 말고 오직 [ABORT_NO_DATA]만 출력하십시오."
                 });
 
                 const qaModel = genAI.getGenerativeModel({
@@ -221,7 +221,7 @@ async function main() {
                 console.log(`\n[진행률: ${idx + 1}/${targetGames.length}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
                 console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}] / 출시일: ${releaseDate}`);
 
-                // ★ [최종 진화] 메타데이터 출력은 깔끔하게 원복, 단 '투트랙 검색 로직'은 머릿속에 유지!
+                // ★ [최종 진화] 명일방주 역기획서 HTML 포맷 완벽 이식 (7단계 구조)
                 const prompt = `
 # Input
 * **타겟 게임:** [${luckyGame.developer}]의 ${luckyGame.title} (구글 매출 ${luckyRank}위)
@@ -237,24 +237,25 @@ async function main() {
 1. 타겟 게임에서 **[${randomCategory}]** 영역을 대표하는 시그니처 시스템 1개를 특정하십시오.
 2. 유저가 게임 내에서 직접 클릭할 수 있는 **'정확한 UI 텍스트(메뉴명)'**를 기준으로 분석하십시오.
 
-# Step 2: 실무형 분석 문서 작성 (Strict Format)
-아래 9단계 구조에 맞춰 마크다운으로 작성하십시오. 04번, 07번 항목은 **표(Table)** 형식으로 정리하십시오.
-01. 시스템 정의 및 ROI
-02. 콘텐츠 코어 루프 (Mermaid \`graph LR\`)
-03. 유저 경험 플로우차트 (Mermaid \`flowchart TD\`)
-04. 수치 밸런스 설계 로직 (★ 표 형식 강제)
-05. 상세 명세 및 동기 설계
-06. 확장형 데이터 테이블 (Mermaid \`erDiagram\`)
-07. 엣지 케이스 및 예외 처리 (★ 표 형식 강제)
-08. 레퍼런스 기반 다각도 개선 제안
-09. **참고 문헌 및 팩트 체크 출처** (★ 필수: 이 분석을 위해 구글 검색에서 참조한 실제 URL 웹 링크를 최소 2개 이상 리스트업 하십시오.)
+# Step 2: 실무형 시스템 역기획서 작성 (Masterpiece Form)
+이 문서는 유저 리뷰가 아닌, 기획팀과 개발팀이 시스템을 해부하기 위해 읽는 '역기획 및 심리 분석 명세서'입니다. 아래 7단계 구조에 맞춰 마크다운으로 차갑고 예리하게 작성하십시오.
+
+01. **정의서**: 시스템 개요 및 기획 의도 분석 (수익화, 리텐션, UX 관점에서 기획자가 의도한 바를 명시)
+02. **구조도**: 핵심 서브시스템 간의 연결 관계 (Mermaid \`graph LR\`)
+03. **플로우차트**: 유저의 핵심 이용 흐름 (Mermaid \`flowchart TD\`)
+04. **상세 명세 및 심리 설계**: 
+    - 인터랙션 및 상태 전이 명세
+    - **[핵심]** 이 시스템이 유저의 어떤 심리적 트리거(FOMO, 매몰비용, 보상/도박 심리, 손실 회피 등)를 찌르기 위해 설계되었는지 기획자의 시선에서 해부
+05. **데이터 테이블**: 수치 밸런스, 재화 Source/Sink 구조, 확장형 DB ERD (Mermaid \`erDiagram\`)
+06. **예외 처리 명세**: 엣지 케이스, 어뷰징 방지, 시스템 한계 도달 시 처리 방법 (★ 표 형식 강제)
+07. **비교 분석 및 인사이트**: 유사 장르 탑 티어 게임과의 시스템 비교 매트릭스 및 실무적 개선 제안
 
 # ★ [핵심] 개발사-퍼블리셔 교차 검증 및 국가별 맞춤 검색 (Dynamic Grounding)
 1. **주체 식별**: 제공된 법인명([${luckyGame.developer}])은 구글플레이에 등록된 '퍼블리셔(Publisher)'입니다. 구글 검색을 통해 이 게임의 **'실제 원작 개발사(Developer)'**가 어디인지 파악하십시오.
 2. **투트랙(Two-Track) 검색**: 
-   - 퍼블리셔와 개발사가 다른 경우 (예: 한국 개발사 + 중국 글로벌 퍼블리셔 등), **개발사 본진의 코어 로직 커뮤니티**와 **퍼블리셔가 주도하는 라이브 운영 지표(BM/패치노트)**를 모두 검색하여 교차 검증하십시오.
+   - 퍼블리셔와 개발사가 다른 경우, **개발사 본진의 코어 로직 커뮤니티**와 **퍼블리셔가 주도하는 라이브 운영 지표(BM/패치노트)**를 모두 검색하여 교차 검증하십시오.
    - 글로벌 게임은 "{게임명} Reddit", "{게임명} Fandom Wiki", 한국 내수 게임은 "{게임명} 공식 라운지/인벤" 등을 우선 타겟팅하십시오.
-3. (중요) 해외 영문, 중문, 일문 데이터를 참고하더라도 최종 출력은 **반드시 전문적인 한국어 게임 기획 용어로 번역 및 정제하여 작성**하십시오.
+3. (중요) 해외 데이터를 참고하더라도 최종 출력은 **반드시 전문적인 한국어 게임 기획/서버 용어로 번역 및 정제하여 작성**하십시오.
 
 # Output Constraints (절대 수정 금지)
 * [사고 과정 노출 금지]: 내부 검색 과정은 텍스트로 노출하지 마십시오.
@@ -313,14 +314,12 @@ async function main() {
                     coreSystemName = systemMatch[1].replace(/\[\/META\]/gi, '').replace(/[/\\?%*:|"<>]/g, '_').trim();
                 }
 
-                // ★ [최종 진화] 파싱 시 '실제개발사' 관련 로직 완전 삭제, 오리지널로 원복
                 reportText = reportText.replace(/메인장르:.*?\n/g, '')
                                        .replace(/서브장르:.*?\n/g, '')
                                        .replace(/시스템:.*?\n/g, '').trim();
 
-                // ★ [최종 진화] 문서 헤더도 대표님의 깔끔한 오리지널 스타일로 롤백 완료
                 const cleanHeader = `
-# [${luckyRank}위] ${luckyGame.title} 분석 문서
+# [${luckyRank}위] ${luckyGame.title} 역기획서
 > **분석 타겟:** ${randomCategory}
 > **핵심 시스템:** ${coreSystemName}
 > **개발사:** ${luckyGame.developer}
@@ -511,7 +510,7 @@ ${currentMermaid}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${luckyGame.title} 분석 문서</title>
+    <title>${luckyGame.title} 기획 제안서</title>
     <style>
         @import url('[https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css](https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css)');
         :root { --primary: #4F46E5; --bg: #F3F4F6; --card-bg: #FFFFFF; --text-main: #1F2937; --border: #E5E7EB; }
