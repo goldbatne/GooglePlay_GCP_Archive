@@ -29,7 +29,7 @@ jobs:
           START_RANK: 1
           END_RANK: 3
           # ★ Top 50 전용 API 키 풀 (5개)
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_TOP }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_BOTTOM }}
           GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
           GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
           GCP_REFRESH_TOKEN: ${{ secrets.GCP_REFRESH_TOKEN }}
