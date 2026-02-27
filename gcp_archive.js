@@ -45,7 +45,6 @@ function getKrokiUrl(text) {
 }
 
 function sanitizeMermaid(rawCode) {
-    // ★ [진화 3] 눈에 보이지 않는 공백(ZWSP) 및 제어 문자 원천 학살
     let fixed = rawCode.replace(/[\u200B-\u200D\uFEFF]/g, ''); 
     fixed = fixed.replace(/\/\/.*$/gm, '').replace(/%%.*$/gm, '').trim();
     fixed = fixed.replace(/["'*#]/g, ''); 
@@ -189,15 +188,12 @@ async function main() {
                 const currentKey = apiKeys[idx % apiKeys.length];
                 const genAI = new GoogleGenerativeAI(currentKey);
                 
-                // ★ [진화 1] 에이전트 뇌의 물리적 분리 (True Multi-Agent)
-                // [Agent 1] 수석 기획자 모델 (검색 툴 O, 기획 페르소나 주입)
                 const draftModel = genAI.getGenerativeModel({ 
                     model: "gemini-2.5-flash",
                     tools: [{ googleSearch: {} }],
                     systemInstruction: "당신은 15년 차 수석 게임 시스템 기획자입니다. 빈말이나 과도한 칭찬을 배제하고 사실 기반으로만 작성하십시오. 데이터가 부족한 양산형 게임의 경우 억지로 지어내지 말고 오직 [ABORT_NO_DATA]만 출력하십시오."
                 });
 
-                // [Agent 2] 컴파일러 QA 모델 (검색 툴 X, 문법 교정 페르소나 주입)
                 const qaModel = genAI.getGenerativeModel({
                     model: "gemini-2.5-flash",
                     systemInstruction: "당신은 감정이 없는 '엄격한 다이어그램 컴파일러'입니다. 기획적 의도, 설명, 마크다운(```) 기호 없이 오직 완벽하게 동작하는 Mermaid 순수 코드만 반환하십시오."
@@ -224,16 +220,18 @@ async function main() {
                 console.log(`\n[진행률: ${idx + 1}/${targetGames.length}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
                 console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}] / 출시일: ${releaseDate}`);
 
+                // ★ [최종 완성] 퍼블리셔-개발사 투트랙 식별 및 교차 검증 로직 탑재
                 const prompt = `
 # Input
 * **타겟 게임:** [${luckyGame.developer}]의 ${luckyGame.title} (구글 매출 ${luckyRank}위)
 * **분석 타겟 영역:** ${randomCategory}
 
 # Step 0: 메타데이터 정의 (절대 수정 금지)
-최상단에 반드시 다음 3줄을 작성하십시오.
+최상단에 반드시 다음 4줄을 작성하십시오.
 메인장르: (반드시 다음 10개 중 하나만 선택: RPG, MMORPG, 방치형, SLG/전략, 캐주얼/퍼즐, 액션/슈팅, SNG/시뮬레이션, 스포츠/레이싱, 카지노/보드, 기타)
 서브장르: (15자 이내 자유 형식)
 시스템: (15자 이내 명사형, 파일명에 사용될 핵심 시스템명)
+실제개발사: (검색으로 파악한 이 게임의 원작 개발 스튜디오명. 만약 퍼블리셔와 같다면 동일하게 기재)
 
 # Step 1: 실제 게임 내 UI 표기 명칭 타겟팅
 1. 타겟 게임에서 **[${randomCategory}]** 영역을 대표하는 시그니처 시스템 1개를 특정하십시오.
@@ -251,8 +249,12 @@ async function main() {
 08. 레퍼런스 기반 다각도 개선 제안
 09. **참고 문헌 및 팩트 체크 출처** (★ 필수: 이 분석을 위해 구글 검색에서 참조한 실제 URL 웹 링크를 최소 2개 이상 리스트업 하십시오.)
 
-# ★ [진화 2] 검색 전략 강제 지시 (Grounding Targeting)
-* 구글 검색 시 반드시 **"{게임명} 공식 라운지", "{게임명} 업데이트 패치노트", "{게임명} 인벤"** 등의 키워드를 조합하여 실제 유저들이 체감하는 팩트를 찾으십시오. 
+# ★ [핵심] 개발사-퍼블리셔 교차 검증 및 국가별 맞춤 검색 (Dynamic Grounding)
+1. **주체 식별**: 제공된 법인명([${luckyGame.developer}])은 구글플레이에 등록된 '퍼블리셔(Publisher)'입니다. 구글 검색을 통해 이 게임의 **'실제 원작 개발사(Developer)'**가 어디인지 먼저 식별하십시오.
+2. **투트랙(Two-Track) 검색**: 
+   - 퍼블리셔와 개발사가 다른 경우 (예: 한국 개발사 + 중국 글로벌 퍼블리셔 등), **개발사 본진의 코어 로직 커뮤니티**와 **퍼블리셔가 주도하는 라이브 운영 지표(BM/패치노트)**를 모두 검색하여 교차 검증하십시오.
+   - 글로벌 게임은 "{게임명} Reddit", "{게임명} Fandom Wiki", 한국 내수 게임은 "{게임명} 공식 라운지/인벤" 등을 우선 타겟팅하십시오.
+3. (중요) 해외 영문, 중문, 일문 데이터를 참고하더라도 최종 출력은 **반드시 전문적인 한국어 게임 기획 용어로 번역 및 정제하여 작성**하십시오.
 
 # Output Constraints (절대 수정 금지)
 * [사고 과정 노출 금지]: 내부 검색 과정은 텍스트로 노출하지 마십시오.
@@ -266,7 +268,6 @@ async function main() {
                 for (let initAttempt = 1; initAttempt <= MAX_RETRIES; initAttempt++) {
                     try {
                         await delay(5000); 
-                        // ★ 분리된 Agent 1(기획자) 호출
                         const draftResult = await draftModel.generateContent(prompt);
                         reportText = draftResult.response.text();
                         draftSuccess = true;
@@ -312,15 +313,25 @@ async function main() {
                     coreSystemName = systemMatch[1].replace(/\[\/META\]/gi, '').replace(/[/\\?%*:|"<>]/g, '_').trim();
                 }
 
+                // ★ [최종 진화] 파싱 블록: 실제 개발사 추출 로직 추가
+                let realDeveloper = luckyGame.developer; 
+                const devMatch = reportText.match(/실제개발사:\s*([^\n]+)/);
+                if (devMatch) {
+                    realDeveloper = devMatch[1].replace(/\[\/META\]/gi, '').trim();
+                }
+
                 reportText = reportText.replace(/메인장르:.*?\n/g, '')
                                        .replace(/서브장르:.*?\n/g, '')
-                                       .replace(/시스템:.*?\n/g, '').trim();
+                                       .replace(/시스템:.*?\n/g, '')
+                                       .replace(/실제개발사:.*?\n/g, '').trim();
 
+                // ★ [최종 진화] 문서 헤더에 퍼블리셔와 실제 개발사 분리 표기
                 const cleanHeader = `
 # [${luckyRank}위] ${luckyGame.title} 분석 문서
 > **분석 타겟:** ${randomCategory}
 > **핵심 시스템:** ${coreSystemName}
-> **개발사:** ${luckyGame.developer}
+> **퍼블리셔:** ${luckyGame.developer}
+> **실제 개발사:** ${realDeveloper}
 > **작성일:** ${dateString}
 > **출시일:** ${releaseDate}
 
@@ -373,7 +384,6 @@ ${currentMermaid}
                                 for(let qaTry=1; qaTry<=3; qaTry++) {
                                     try {
                                         await delay(5000); 
-                                        // ★ 분리된 Agent 2(컴파일러) 호출
                                         let res = await qaModel.generateContent(qaPrompt);
                                         qaResultText = res.response.text();
                                         break;
