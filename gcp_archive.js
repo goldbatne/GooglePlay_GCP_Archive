@@ -192,7 +192,7 @@ async function main() {
                 const draftModel = genAI.getGenerativeModel({ 
                     model: "gemini-2.5-flash",
                     tools: [{ googleSearch: {} }],
-                    systemInstruction: "당신은 인간의 심리를 꿰뚫어 보는 15년 차 수석 게임 시스템 기획자이자 디렉터입니다. 타겟 게임의 내부 수치(공식)나 DB 구조는 외부에서 완벽히 알 수 없으므로, 게임의 UX와 BM을 바탕으로 한 당신의 '합리적 역기획(Educated Guess)'을 적극 허용합니다. 단, 시스템의 뼈대나 핵심 명칭 자체를 지어내는 것은 금지합니다. 1차 검색에서 정보가 안 나오면 포기하지 말고 검색 키워드를 바꿔가며 심층 사이트를 끝까지 추적하는 딥 서치(Deep Search)를 수행하십시오. 도저히 시스템의 흔적조차 찾을 수 없을 때만 [ABORT_NO_DATA]를 출력하십시오."
+                    systemInstruction: "당신은 인간의 심리를 꿰뚫어 보는 15년 차 수석 게임 시스템 기획자이자 디렉터입니다. 타겟 게임의 내부 수치나 DB 구조는 외부에서 완벽히 알 수 없으므로, 게임의 UX와 BM을 바탕으로 한 당신의 '합리적 역기획(Educated Guess)'을 적극 허용합니다. 단, 시스템의 뼈대나 핵심 명칭 자체를 지어내는 것은 금지합니다. 1차 검색에서 정보가 안 나오면 포기하지 말고 검색 키워드를 바꿔가며 심층 사이트를 끝까지 추적하는 딥 서치(Deep Search)를 수행하십시오. 도저히 시스템의 흔적조차 찾을 수 없을 때만 [ABORT_NO_DATA]를 출력하십시오."
                 });
 
                 const qaModel = genAI.getGenerativeModel({
@@ -221,7 +221,6 @@ async function main() {
                 console.log(`\n[진행률: ${idx + 1}/${targetGames.length}] 매출 ${luckyRank}위: ${luckyGame.title} 처리 중...`);
                 console.log(`  -> 🎯 타겟 분석 영역: [${randomCategory}] / 출시일: ${releaseDate}`);
 
-                // ★ [최종 진화] 검증(Validation) 로직 추가 프롬프트
                 const prompt = `
 # Input
 * **타겟 게임:** [${luckyGame.developer}]의 ${luckyGame.title} (구글 매출 ${luckyRank}위)
@@ -239,33 +238,32 @@ async function main() {
 
 # Step 2: 실무형 시스템 역기획서 작성 (Endfield Reference Format)
 이 문서는 기획팀과 개발팀이 타사 시스템을 해부하기 위해 읽는 '역기획 및 심리 분석 명세서'입니다. 
-아래 8단계 구조에 맞춰 마크다운으로 차갑고 예리하게 작성하십시오. (05, 06번 표 강제)
+아래 9단계 구조에 맞춰 마크다운으로 차갑고 예리하게 작성하십시오. (05, 07, 08번 표 강제)
 
 01. **정의 및 기획 의도**: 시스템 개요와 기획자가 이 시스템을 도입한 핵심 의도(수익화, 리텐션, 트래픽 유도 등) 명시
-02. **시스템 구조도**: 핵심 서브시스템 간의 연결 관계 (Mermaid \`graph LR\`)
-03. **이용 플로우차트**: 유저의 핵심 이용 흐름 (Mermaid \`flowchart TD\`)
+02. **시스템 구조도**: 핵심 서브시스템 간의 연결 관계 (★ Mermaid \`graph LR\` 강제)
+03. **이용 플로우차트**: 유저의 핵심 이용 흐름 (★ Mermaid \`flowchart TD\` 강제)
 04. **상세 명세 및 심리 설계**: 
     - 인터랙션 및 상태 전이 명세
     - **[핵심]** 이 시스템이 유저의 어떤 심리적 트리거(FOMO, 매몰비용, 보상/도박 심리, 손실 회피 등)를 찌르는지 기획자 관점에서 해부
-05. **데이터 테이블 및 수치 밸런스**: 재화 Source/Sink 구조 파악 및 추정 수치 (★ 합리적 추정(Educated Guess) 기반 작성 허용)
-06. **확장형 DB ERD 및 예외 처리**: 백엔드 DB 구조(합리적 추정 허용) 및 어뷰징 방지 예외 처리 (★ 표 형식 강제)
-07. **비교 분석 및 인사이트**: 유사 장르 탑 티어 게임과의 시스템 비교 매트릭스 및 실무적 개선 제안
-08. **참고 문헌 및 팩트 체크 출처**: (★ 필수: 이 분석을 위해 구글 검색에서 참조한 실제 URL 웹 링크 최소 2개)
+05. **데이터 테이블 및 수치 밸런스**: 재화 Source/Sink 구조 파악 및 밸런스 (★ 주의: 아이템명, 재화명은 100% 팩트 기재. 정확한 확률이나 수치는 합리적 추정 허용) (★ 표 형식 강제)
+06. **확장형 DB ERD**: 백엔드 DB 테이블 설계 (★ Mermaid \`erDiagram\` 강제. 서버 내부 정보이므로 기획적 합리적 추정 적극 허용)
+07. **예외 처리 명세**: 엣지 케이스, 어뷰징 방지, 시스템 한계 도달 시 처리 방법 (★ 표 형식 강제)
+08. **비교 분석 및 인사이트**: 유사 장르 탑 티어 게임과의 시스템 비교 매트릭스 및 실무적 개선 제안 (★ 표 형식 강제)
+09. **참고 문헌 및 팩트 체크 출처**: (★ 필수: 이 분석을 위해 구글 검색에서 참조한 실제 URL 웹 링크 최소 2개)
 
-# ★ [핵심] 딥 서치(Deep Search) 및 글로벌 데이터 정답 검증 전략
-1. **주체 식별**: 제공된 법인명([${luckyGame.developer}])은 '퍼블리셔'입니다. 실제 '개발사'가 어디인지 파악하십시오.
+# ★ [핵심] 딥 서치(Deep Search) 및 환각(Hallucination) 방지 철칙
+1. **IP 혼동 절대 금지**: 타겟 게임이 PC/콘솔 원작의 IP를 차용한 모바일 게임(예: 메이플스토리, 던전앤파이터 등)일 경우, 절대 원작 PC 게임의 아이템명이나 옛날 데이터를 섞어서 날조하지 마십시오. 반드시 '해당 모바일 게임'의 최신 데이터를 검색하십시오.
 2. **심층 검색망 가동**: 
-   - 1차 검색(Reddit, Fandom Wiki, 한국 인벤/라운지)에서 정보가 부족할 경우 절대 포기하지 마십시오.
-   - 검색 키워드를 변경하여 **"나무위키(Namuwiki), 일본 게임에이트(Game8) 및 게임위드(Gamewith), 중국 NGA, 유튜브 패치노트 요약글"** 등 2차, 3차 심층 사이트를 끝까지 파헤쳐 팩트를 캐내십시오.
-3. **데이터 정답 검증 (Validation Protocol)**: 
-   - 심층 검색으로 찾은 링크나 데이터가 **과거 CBT 데이터인지, 구버전 패치 내용인지, 혹은 유저의 단순 뇌피셜(루머)인지 반드시 교차 검증**하십시오.
-   - 서로 다른 2개 이상의 출처에서 교차 확인된 내용이나, 공식 패치노트/인게임 스크린샷과 일치하는 논리적인 정보만을 '진짜 정답(Fact)'으로 확정하여 문서에 반영하십시오.
-4. (중요) 언어 장벽을 넘어 수집된 정보는 **반드시 전문적인 한국어 게임 기획/서버 용어로 번역 및 정제**하십시오.
+   - 1차 검색(Reddit, 라운지)에서 정보가 부족하면 포기하지 말고, "나무위키, 일본 Game8, 중국 NGA, 유튜브 패치노트 요약글" 등을 끝까지 파헤쳐 팩트를 캐내십시오.
+3. **데이터 정답 검증 (Validation)**: 
+   - 검색된 데이터가 최신 라이브 서버 기준인지 복수의 출처로 교차 검증하십시오.
+   - 딥 서치를 통해서도 실제 인게임 고유명사나 데이터를 찾을 수 없다면, 소설을 쓰지 말고 당당하게 **"데이터 비공개 (검색 불가)"**라고 명시하십시오.
 
 # Output Constraints (절대 수정 금지)
 * [사고 과정 노출 금지]: 내부 검색 및 검증 과정은 텍스트로 노출하지 마십시오.
 * [Mermaid 규칙]: 화살표 텍스트(\`-->|텍스트|\`)는 10자 이내. 대괄호, 중괄호 안에 콜론(:), 따옴표("), 쉼표(,) 절대 금지.
-* [노드 ID 규칙]: Mermaid 다이어그램의 노드 ID는 반드시 띄어쓰기 없는 알파벳+숫자 조합(예: A1, B2)으로 작성.
+* [노드 ID 규칙]: Mermaid 다이어그램의 노드 ID는 반드시 띄어쓰기 없는 영문 알파벳과 숫자 조합(예: A1, Node2)으로 작성.
 `;
         
                 let reportText = "";
@@ -371,7 +369,7 @@ async function main() {
 ${attempt > 1 ? "\n**[경고] 이전 시도에서 파서 에러가 발생했습니다! 화살표 텍스트에 긴 문장을 쓰지 마십시오. 화살표 텍스트는 10자 이내로 짧게 쓰십시오.**\n" : ""}
 1. [ERD 규칙]: \`erDiagram\` 속성에 따옴표나 코멘트를 모두 지우고 '타입 이름'만 남기세요.
 2. [Flowchart 규칙]: 모든 \`subgraph\` 이름은 반드시 큰따옴표(\`""\`)로 감쌀 것.
-3. [노드 규칙]: 대괄호 \`[]\` 밖의 노드 ID는 반드시 **띄어쓰기 없는 알파벳과 숫자 조합(예: A1, Node2)**으로만 작성하십시오.
+3. [노드 규칙]: 대괄호 \`[]\` 밖의 노드 ID는 반드시 **띄어쓰기 없는 영문 알파벳과 숫자 조합(예: A1, Node2)**으로만 작성하십시오. 한글 노드 ID는 절대 금지합니다.
 
 [원본 코드]:
 ${currentMermaid}
@@ -419,7 +417,7 @@ ${currentMermaid}
                                 await delay(15000); 
                             }
                             if (!qaSuccess) {
-                                console.log(`  -> 🚨 [최후 방어선] 외계어 감지. 스킵합니다.`);
+                                console.log(`  -> 🚨 [최후 방어선] 외계어 감지. 해당 게임 분석을 스킵합니다.`);
                                 isMermaidBroken = true;
                                 break; 
                             }
@@ -468,26 +466,27 @@ ${currentMermaid}
                   mdSaved = true;
                 } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
 
+                // ★ PDF CSS 타임아웃 방어 (우분투 로컬 CJK 폰트 적용)
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
                   const pdfData = await mdToPdf({ content: pdfText }, {
                       timeout: 120000, 
                       launch_options: { args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] },
                       css: `
-                          body { font-family: 'Noto Sans CJK KR', sans-serif; line-height: 1.7; color: #1F2937; padding: 20px; }
-                          h1 { font-size: 2.2em; font-weight: 800; border-bottom: 3px solid #4F46E5; padding-bottom: 12px; margin-bottom: 25px; color: #111827; }
-                          h2 { font-size: 1.5em; font-weight: 700; color: #4F46E5; margin-top: 2.2em; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; }
-                          h3 { font-size: 1.25em; font-weight: 600; color: #374151; margin-top: 1.5em; }
-                          blockquote { background-color: #EEF2FF; border-left: 5px solid #4F46E5; padding: 15px 20px; border-radius: 0 8px 8px 0; color: #4338CA; margin: 20px 0; font-weight: 500; font-size: 0.95em; }
-                          table { width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 0.95em; border-radius: 8px; overflow: hidden; }
+                          body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', sans-serif; line-height: 1.7; color: #1F2937; padding: 20px; background-color: #ffffff; }
+                          h1 { font-size: 2.4em; font-weight: 800; border-bottom: 4px solid #4F46E5; padding-bottom: 12px; margin-bottom: 25px; color: #111827; }
+                          h2 { font-size: 1.6em; font-weight: 700; color: #4F46E5; margin-top: 2.2em; border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; }
+                          h3 { font-size: 1.3em; font-weight: 600; color: #374151; margin-top: 1.5em; }
+                          blockquote { background-color: #EEF2FF; border-left: 5px solid #4F46E5; padding: 15px 20px; border-radius: 0 8px 8px 0; color: #4338CA; margin: 20px 0; font-weight: 500; font-size: 1.05em; }
+                          table { width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 0.95em; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
                           th, td { border: 1px solid #E5E7EB; padding: 12px 15px; text-align: left; }
                           th { background-color: #F9FAFB; font-weight: 600; color: #111827; }
-                          pre { background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin: 15px 0; overflow-x: auto; }
-                          code { font-family: monospace; font-size: 0.9em; color: #DB2777; background-color: #F9FAFB; padding: 2px 5px; border-radius: 4px; }
+                          pre { background-color: #1E293B; color: #F8FAFC; padding: 20px; border-radius: 12px; margin: 20px 0; overflow-x: auto; }
+                          code { font-family: monospace; font-size: 0.9em; color: #E11D48; background-color: #F1F5F9; padding: 4px 8px; border-radius: 6px; }
                           pre code { background-color: transparent; color: inherit; padding: 0; }
                           hr { border: 0; height: 1px; background: #E5E7EB; margin: 30px 0; }
-                          img { display: block; margin: 30px auto; max-width: 80%; max-height: 400px; width: auto; height: auto; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-                          @media (max-width: 768px) { body { padding: 15px 10px; } .report-container { padding: 30px 20px; border-radius: 16px; } h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } }
+                          img { display: block; margin: 30px auto; max-width: 90%; height: auto; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+                          @media (max-width: 768px) { body { padding: 15px 10px; } h1 { font-size: 1.8em; } h2 { font-size: 1.4em; } }
                       `,
                       pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' } }
                   });
@@ -504,6 +503,7 @@ ${currentMermaid}
                   pdfSaved = true;
                 } catch (e) { console.error(`  -> ❌ [PDF] 변환/저장 실패: ${e.message}`); }
 
+                // ★ HTML CSS 마크다운 깨짐 버그 영구 제거 완료
                 try {
                   console.log(`  -> 🌐 [HTML] 변환 시작...`);
                   const parsedHtmlBody = marked.parse(pdfText); 
@@ -515,7 +515,7 @@ ${currentMermaid}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${luckyGame.title} 역기획서</title>
+    <title>${luckyGame.title} 분석 문서</title>
     <style>
         @import url('[https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css](https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css)');
         :root { --primary: #4F46E5; --bg: #F3F4F6; --card-bg: #FFFFFF; --text-main: #1F2937; --border: #E5E7EB; }
@@ -530,7 +530,7 @@ ${currentMermaid}
         td { padding: 16px; border-bottom: 1px solid var(--border); }
         tr:last-child td { border-bottom: none; }
         pre { background: #1E293B; color: #F8FAFC; padding: 20px; border-radius: 12px; overflow-x: auto; margin: 20px 0; box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06); }
-        code { font-family: monospace; font-size: 0.9em; background: #F1F5F9; color: #E11D48; padding: 4px 8px; border-radius: 6px; }
+        code { font-family: monospace; font-size: 0.9em; color: #E11D48; background-color: #F1F5F9; padding: 4px 8px; border-radius: 6px; }
         pre code { background: transparent; color: inherit; padding: 0; }
         img { display: block; margin: 40px auto; max-width: 90%; height: auto; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
         hr { border: 0; height: 1px; background: var(--border); margin: 40px 0; }
