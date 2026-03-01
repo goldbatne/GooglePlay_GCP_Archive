@@ -426,9 +426,6 @@ ${currentMermaid}
                         if (!isMermaidBroken) {
                             mdText += "```mermaid\n" + finalFixedMermaid + "\n```"; 
                             const finalRenderUrl = getKrokiUrl(finalFixedMermaid);
-                            
-                            // ★ [핵심 FIX] 마크다운 이미지 구문 한계 돌파! (HTML <img> 태그 직접 주입)
-                            // URL이 아무리 길어도 외계어 텍스트로 깨지지 않고 무조건 이미지로 렌더링됩니다.
                             pdfText += `\n\n<img src="${finalRenderUrl}" alt="시스템 다이어그램" style="max-width: 100%; height: auto;" />\n\n`; 
                         }
 
@@ -469,6 +466,7 @@ ${currentMermaid}
                   mdSaved = true;
                 } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
 
+                // ★ [완벽 수정] PDF 스케일 50% 적용 (짤림 완벽 방어)
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
                   const pdfData = await mdToPdf({ content: pdfText }, {
@@ -481,7 +479,6 @@ ${currentMermaid}
                           h3 { font-size: 1.2em; font-weight: 600; color: #374151; margin-top: 1.2em; page-break-after: avoid; }
                           blockquote { background-color: #EEF2FF; border-left: 5px solid #4F46E5; padding: 12px 15px; color: #4338CA; margin: 15px 0; font-weight: 500; font-size: 0.95em; page-break-inside: avoid; }
                           
-                          /* ★ 스마트 테이블 레이아웃: 찌그러짐 방지 + 잘림 방지 동시 적용 */
                           table { width: 100%; max-width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.85em; table-layout: auto; }
                           th, td { border: 1px solid #E5E7EB; padding: 8px 10px; text-align: left; word-break: keep-all; overflow-wrap: anywhere; }
                           tr { page-break-inside: avoid; }
@@ -490,10 +487,10 @@ ${currentMermaid}
                           code { font-family: monospace; font-size: 0.9em; color: #DB2777; background-color: #F9FAFB; padding: 2px 4px; border-radius: 4px; word-break: break-all; }
                           pre code { background-color: transparent; color: inherit; padding: 0; word-break: break-all; }
                           
-                          /* 이미지 폭주 방지 */
                           img { display: block; margin: 20px auto; max-width: 100% !important; height: auto !important; object-fit: contain; page-break-inside: avoid; }
                       `,
-                      pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }, scale: 0.75, printBackground: true }
+                      // ★ scale: 0.50 적용 완료 (모든 다이어그램 짤림 방어)
+                      pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }, scale: 0.50, printBackground: true }
                   });
                   
                   if (!pdfData || !pdfData.content) throw new Error("PDF 변환 엔진이 빈 데이터를 반환했습니다.");
@@ -530,7 +527,6 @@ ${currentMermaid}
         h3 { font-size: 1.3em; font-weight: 600; color: #374151; margin-top: 1.8em; }
         blockquote { background: #EEF2FF; border-left: 5px solid var(--primary); padding: 20px; margin: 25px 0; border-radius: 0 12px 12px 0; color: #4338CA; font-weight: 500; font-size: 1.05em; }
         
-        /* ★ 스마트 테이블 레이아웃 */
         table { width: 100%; max-width: 100%; border-collapse: separate; border-spacing: 0; margin: 30px 0; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); table-layout: auto; }
         th { background-color: #F9FAFB; padding: 16px; font-weight: 600; text-align: left; border-bottom: 1px solid var(--border); color: #374151; word-break: keep-all; }
         td { padding: 16px; border-bottom: 1px solid var(--border); word-break: keep-all; overflow-wrap: anywhere; }
