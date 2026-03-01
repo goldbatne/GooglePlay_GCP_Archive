@@ -466,7 +466,7 @@ ${currentMermaid}
                   mdSaved = true;
                 } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
 
-                // ★ [최종 복원] 75% Scale 옵션 부활 및 완벽 렌더링 설정
+                // ★ PDF 75% Scale 축소 및 Table 줄바꿈 짤림 방어 처리
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
                   const pdfData = await mdToPdf({ content: pdfText }, {
@@ -479,6 +479,7 @@ ${currentMermaid}
                           h3 { font-size: 1.2em; font-weight: 600; color: #374151; margin-top: 1.2em; page-break-after: avoid; }
                           blockquote { background-color: #EEF2FF; border-left: 5px solid #4F46E5; padding: 12px 15px; color: #4338CA; margin: 15px 0; font-weight: 500; font-size: 0.95em; page-break-inside: avoid; }
                           
+                          /* 짤림 방지 핵심 CSS */
                           table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.85em; table-layout: fixed; word-wrap: break-word; }
                           th, td { border: 1px solid #E5E7EB; padding: 8px 10px; text-align: left; word-break: keep-all; overflow-wrap: break-word; }
                           tr { page-break-inside: avoid; }
@@ -489,7 +490,6 @@ ${currentMermaid}
                           
                           img { display: block; margin: 20px auto; max-width: 100% !important; height: auto !important; object-fit: contain; page-break-inside: avoid; }
                       `,
-                      // ★ scale: 0.75 적용 완료
                       pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }, scale: 0.75, printBackground: true }
                   });
                   
@@ -505,6 +505,7 @@ ${currentMermaid}
                   pdfSaved = true;
                 } catch (e) { console.error(`  -> ❌ [PDF] 변환/저장 실패: ${e.message}`); }
 
+                // ★ HTML 링크 오타 복구 및 짤림 방어 처리
                 try {
                   console.log(`  -> 🌐 [HTML] 변환 시작...`);
                   const parsedHtmlBody = marked.parse(pdfText); 
