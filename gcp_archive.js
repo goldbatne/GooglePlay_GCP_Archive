@@ -426,7 +426,9 @@ ${currentMermaid}
                         if (!isMermaidBroken) {
                             mdText += "```mermaid\n" + finalFixedMermaid + "\n```"; 
                             const finalRenderUrl = getKrokiUrl(finalFixedMermaid);
-                            pdfText += `\n\n<img src="${finalRenderUrl}" alt="시스템 다이어그램" style="max-width: 100%; height: auto;" />\n\n`; 
+                            
+                            // ★ [완벽 FIX] 글자 크기는 100% 원복, 다이어그램만 A4 한 장 높이(220mm)로 강제 압축 (잘림 방지)
+                            pdfText += `\n\n<div style="page-break-inside: avoid; break-inside: avoid; text-align: center; width: 100%;"><img src="${finalRenderUrl}" alt="시스템 다이어그램" style="max-width: 100%; max-height: 220mm; height: auto; object-fit: contain; margin: 0 auto; display: block;" /></div>\n\n`; 
                         }
 
                     } catch (e) {
@@ -466,7 +468,7 @@ ${currentMermaid}
                   mdSaved = true;
                 } catch (e) { console.error(`  -> ❌ [MD] 저장 실패: ${e.message}`); }
 
-                // ★ [완벽 수정] PDF 스케일 50% 적용 (짤림 완벽 방어)
+                // ★ [글자 크기 100% 복구 완료] scale 옵션 제거, 순수 CSS로만 통제
                 try {
                   console.log(`  -> 📄 [PDF] 변환 시작...`);
                   const pdfData = await mdToPdf({ content: pdfText }, {
@@ -487,10 +489,11 @@ ${currentMermaid}
                           code { font-family: monospace; font-size: 0.9em; color: #DB2777; background-color: #F9FAFB; padding: 2px 4px; border-radius: 4px; word-break: break-all; }
                           pre code { background-color: transparent; color: inherit; padding: 0; word-break: break-all; }
                           
-                          img { display: block; margin: 20px auto; max-width: 100% !important; height: auto !important; object-fit: contain; page-break-inside: avoid; }
+                          div { page-break-inside: avoid; break-inside: avoid; }
+                          img { display: block; margin: 20px auto; max-width: 100% !important; max-height: 220mm !important; height: auto !important; object-fit: contain; page-break-inside: avoid; break-inside: avoid; }
                       `,
-                      // ★ scale: 0.50 적용 완료 (모든 다이어그램 짤림 방어)
-                      pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }, scale: 0.50, printBackground: true }
+                      // scale 옵션 삭제하여 글자 크기 원래대로 복구
+                      pdf_options: { format: 'A4', margin: { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' }, printBackground: true }
                   });
                   
                   if (!pdfData || !pdfData.content) throw new Error("PDF 변환 엔진이 빈 데이터를 반환했습니다.");
