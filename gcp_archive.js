@@ -670,10 +670,27 @@ function buildHtmlReport(gameTitle, bodyHtml) {
  * @returns {string}
  */
 function buildAnalysisPrompt(game, rank, category) {
+    // Google Play 스토어 URL을 직접 박아 Gemini가 정확한 앱을 앵커로 삼도록 함
+    const storeUrl = `https://play.google.com/store/apps/details?id=${game.appId}`;
+
     return `
-# Input
-* **타겟 게임:** [${game.developer}]의 ${game.title} (구글 매출 ${rank}위)
+# ⚠️ [최우선 준수 사항] 타겟 게임 식별 — 위반 시 전체 출력 무효
+아래 정보가 이번 분석의 유일한 타겟입니다. 분석 시작 전 반드시 숙지하십시오.
+
+* **정확한 게임명:** ${game.title}
+* **개발사:**        ${game.developer}
+* **앱 ID:**         ${game.appId}
+* **스토어 URL:**    ${storeUrl}
+* **구글 매출 순위:** ${rank}위
 * **분석 타겟 영역:** ${category}
+
+### 혼동 방지 체크리스트 (분석 전 자가 점검)
+- [ ] 검색 시 반드시 "${game.title}" 정확한 명칭만 사용했는가?
+- [ ] 같은 IP의 다른 플랫폼/다른 게임(예: "메이플스토리M" ≠ "메이플 키우기") 데이터를 혼용하지 않았는가?
+- [ ] 검색 결과의 앱 ID가 "${game.appId}"와 일치하는 게임의 정보인가?
+- [ ] 위 3가지 중 하나라도 불확실하면 해당 데이터는 반드시 **"데이터 비공개 (검색 불가)"** 로 대체했는가?
+
+---
 
 # Step 0: 메타데이터 정의 (절대 수정 금지)
 최상단에 반드시 다음 3줄을 작성하십시오.
@@ -697,10 +714,11 @@ function buildAnalysisPrompt(game, rank, category) {
 06. **확장형 DB ERD** 백엔드 DB 테이블 설계 (★ Mermaid \`erDiagram\` 강제)
 07. **예외 처리 명세** 엣지 케이스 / 어뷰징 방지 / 한계 도달 처리 (★ 표 형식 강제)
 08. **비교 분석 및 인사이트** 유사 장르 탑 티어 게임과의 비교 매트릭스 + 개선 제안 (★ 표 형식 강제)
-09. **참고 문헌 및 팩트 체크 출처** (★ 필수: 실제 URL 최소 2개)
+09. **참고 문헌 및 팩트 체크 출처** (★ 필수: 실제 URL 최소 2개. 반드시 ${game.title} 관련 URL만 사용)
 
 # ★ 딥 서치 및 환각 방지 철칙
-1. **IP 혼동 절대 금지**: 모바일 게임이면 반드시 해당 모바일 버전의 최신 데이터만 검색.
+1. **[최우선] 게임 식별 고정**: 모든 검색은 "${game.title}" + 앱ID "${game.appId}" 기준으로만 수행.
+   같은 IP를 공유하는 다른 게임이 검색되면 즉시 검색어를 바꾸십시오.
 2. **심층 검색망 가동**: 1차 검색 부족 시 나무위키·Game8·NGA·유튜브 패치노트 요약글까지 파헤치십시오.
 3. **데이터 검증**: 최신 라이브 서버 기준, 복수 출처 교차 검증. 찾을 수 없으면 **"데이터 비공개 (검색 불가)"** 명시.
 
@@ -709,6 +727,7 @@ function buildAnalysisPrompt(game, rank, category) {
 * [Mermaid 규칙]         화살표 텍스트(\`-->|텍스트|\`)는 10자 이내. 대괄호/중괄호 안에 콜론·따옴표·쉼표 절대 금지.
 * [노드 ID 규칙]         노드 ID는 반드시 띄어쓰기 없는 영문+숫자 조합(예: A1, NodeB2). 한글 노드 ID 절대 금지.
 * 데이터가 전혀 없는 비주류 게임이면 [ABORT_NO_DATA] 한 줄만 출력하고 종료.
+* 타겟 게임이 아닌 다른 게임의 데이터가 섞였다고 판단되면 [IP_CONFUSED] 한 줄만 출력하고 종료.
 `;
 }
 
@@ -801,15 +820,18 @@ async function main() {
             const genAI      = new GoogleGenerativeAI(currentKey);
 
             // 역기획서 초안 작성 모델 (Google Search 도구 활성화)
+            // systemInstruction에도 게임명·appId를 고정해 모델 수준에서 혼동 방지
             const draftModel = genAI.getGenerativeModel({
                 model: 'gemini-2.5-flash',
                 tools: [{ googleSearch: {} }],
                 systemInstruction:
                     '당신은 인간의 심리를 꿰뚫어 보는 15년 차 수석 게임 시스템 기획자이자 디렉터입니다. ' +
-                    '타겟 게임의 내부 수치나 DB 구조는 외부에서 완벽히 알 수 없으므로, UX와 BM을 바탕으로 한 합리적 역기획(Educated Guess)을 적극 허용합니다. ' +
-                    '단, 시스템의 뼈대나 핵심 명칭 자체를 지어내는 것은 금지합니다. ' +
-                    '1차 검색에서 정보가 안 나오면 포기하지 말고 검색 키워드를 바꿔가며 심층 사이트를 끝까지 추적하는 딥 서치(Deep Search)를 수행하십시오. ' +
-                    '도저히 시스템의 흔적조차 찾을 수 없을 때만 [ABORT_NO_DATA]를 출력하십시오.',
+                    `이번 세션의 분석 대상은 오직 "${game.title}" (앱ID: ${game.appId}) 단 하나입니다. ` +
+                    '같은 IP를 공유하더라도 이름이 다른 게임(예: "메이플스토리M"과 "메이플 키우기"는 별개)의 데이터를 절대 혼용하지 마십시오. ' +
+                    '검색 결과가 타겟 게임과 다른 게임이면 즉시 검색어를 바꾸십시오. ' +
+                    'UX와 BM을 바탕으로 한 합리적 역기획(Educated Guess)은 허용하나, 시스템 뼈대나 핵심 명칭을 지어내는 것은 금지합니다. ' +
+                    '1차 검색에서 정보가 부족하면 검색 키워드를 바꿔 심층 사이트를 끝까지 추적하는 딥 서치(Deep Search)를 수행하십시오. ' +
+                    '시스템의 흔적조차 없으면 [ABORT_NO_DATA], 타겟 외 게임 데이터가 섞였다고 판단되면 [IP_CONFUSED]를 출력하십시오.',
             });
 
             // 다이어그램 복구 전용 모델 (검색 불필요, 코드 출력만)
@@ -856,6 +878,26 @@ async function main() {
             // 4-4. AI 자율 스킵 판단 확인
             if (reportText.includes('[ABORT_NO_DATA]')) {
                 console.log(`  -> ⏭️  [AUTO-SKIP] 데이터 부족 게임으로 판단. 스킵합니다.`);
+                skippedCount++;
+                continue;
+            }
+
+            // IP 혼동 감지: AI가 스스로 혼동을 인지한 경우
+            if (reportText.includes('[IP_CONFUSED]')) {
+                const errMsg = `[${rank}위] ${game.title} — AI가 IP 혼동을 감지하여 스킵`;
+                console.log(`  -> ⏭️  [IP-SKIP] ${errMsg}`);
+                errorLog.push(errMsg);
+                skippedCount++;
+                continue;
+            }
+
+            // 사후 검증: 리포트 본문에 타겟 게임명이 충분히 등장하는지 확인
+            // 게임명이 3회 미만이면 다른 게임을 분석했을 가능성이 높음
+            const gameNameCount = (reportText.match(new RegExp(game.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')) || []).length;
+            if (gameNameCount < 3) {
+                const errMsg = `[${rank}위] ${game.title} — 본문 내 게임명 등장 횟수 미달 (${gameNameCount}회). IP 혼동 의심으로 스킵`;
+                console.warn(`  -> ⚠️  [IP-GUARD] ${errMsg}`);
+                errorLog.push(errMsg);
                 skippedCount++;
                 continue;
             }
