@@ -2,12 +2,12 @@
 
 // =============================================================================
 //
-//  📦 Google Play 게임 역기획서 자동 생성 파이프라인
+//  📦 Google Play 게임 게임 분석 문서 자동 생성 파이프라인
 //
 //  흐름 요약:
 //    1. Google Play 매출 순위 스크래핑
 //    2. Scout  — 공식 가이드 기준 시스템명·재화명 수집 (최대 3회)
-//    3. Writer — Gemini API 역기획서 초안 생성 (딥서치)
+//    3. Writer — Gemini API 분석 문서 초안 생성 (딥서치)
 //    4. Mermaid 다이어그램 검증 및 자동 복구 (Fast-Track → QA Agent)
 //    5. MD / PDF / HTML 3포맷 변환 후 Google Drive 날짜별 폴더에 저장
 //
@@ -385,7 +385,7 @@ async function uploadToDrive({ fileName, folderId, mimeType, content }) {
 /**
  * 게임별 Gemini 모델 3종 초기화
  * - scoutModel:  명칭 수집 전담 (Google Search 활성화, 짧은 목록 출력만)
- * - draftModel:  역기획서 작성 (Google Search 활성화, 딥서치)
+ * - draftModel:  분석 문서 작성 (Google Search 활성화, 딥서치)
  * - qaModel:     Mermaid 복구 전담 (Search 불필요, 순수 코드 출력만)
  */
 function initModels(genAI, gameTitle, appId) {
@@ -683,7 +683,7 @@ function buildHtmlReport(gameTitle, bodyHtml) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${gameTitle} 역기획서</title>
+    <title>${gameTitle} 분석 문서</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -955,50 +955,110 @@ function buildHtmlReport(gameTitle, bodyHtml) {
 //  1회: 공식 가이드·공홈·카페  2회: 전문 분석 글(인벤·Game8 등)  3회: 나무위키·커뮤니티
 // =============================================================================
 
+// 영문 표기 한국 개발사 화이트리스트 (한글 감지 불가 케이스 보완)
+const KR_DEVELOPERS = new Set([
+    'Netmarble', 'NCSoft', 'Nexon', 'Krafton', 'Com2uS', 'Smilegate',
+    'Kakao Games', 'Pearl Abyss', 'Gravity', 'WeMade', 'Shift Up',
+    'HYBE IM', 'Devsisters', 'Joycity', 'Gamevil', 'Neowiz',
+    'Line Games', 'Ngelgames', '4:33 Creative Lab', 'Sundaytoz',
+]);
+
 function buildScoutPrompt(game, attempt = 1) {
-    const storeUrl = `https://play.google.com/store/apps/details?id=${game.appId}`;
+    const storeUrl  = `https://play.google.com/store/apps/details?id=${game.appId}`;
+    const isKorean  = /[가-힣]/.test(game.developer) ||
+                      KR_DEVELOPERS.has(game.developer.trim());
 
     const strategies = {
-        1: {
-            label: '공식 가이드·공홈·카페 (1순위 출처)',
-            queries: [
-                `${game.title} 공식 가이드 시스템 소개`,
-                `${game.title} ${game.developer} 공식 홈페이지 게임 소개 시스템`,
-                `${game.title} 네이버 공식카페 공략 시스템 재화`,
-            ],
-            instruction: `
+        1: (() => {
+            return isKorean ? {
+                label: '공식 가이드·공홈·카페 — 국내 (1순위 출처)',
+                queries: [
+                    `${game.title} 공식 가이드 시스템 소개`,
+                    `${game.title} ${game.developer} 공식 홈페이지 게임 소개 시스템`,
+                    `${game.title} 네이버 공식카페 공략 시스템 재화`,
+                ],
+                instruction: `
 ## 이번 회차 핵심 지시
-개발사(${game.developer})가 공식적으로 배포한 가이드, 공식 홈페이지, 공식 카페에서만 명칭을 수집하십시오.
+개발사(${game.developer})가 공식적으로 배포한 가이드, 공식 홈페이지, 네이버 공식 카페에서만 명칭을 수집하십시오.
 공식 출처에서 확인된 명칭만 [시스템명]·[재화명]에 기재하십시오.
 공식 출처 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
-        },
-        2: {
-            label: '전문 분석 글 (2순위 출처)',
-            queries: [
-                `${game.title} 인벤 공략 시스템 분석`,
-                `${game.title} Game8 guide system`,
-                `${game.title} NGA 攻略 시스템`,
-                `${game.title} 유튜브 심층 리뷰 시스템 재화`,
-            ],
-            instruction: `
+            } : {
+                label: '공식 가이드·공홈·커뮤니티 — 글로벌 (1순위 출처)',
+                queries: [
+                    `${game.title} official guide system introduction`,
+                    `${game.title} ${game.developer} official site game system`,
+                    `${game.title} official discord OR forum system guide`,
+                ],
+                instruction: `
 ## 이번 회차 핵심 지시
-인벤(inven.co.kr), Game8, NGA, 유튜브 심층 공략·리뷰에서 ${game.title}의 시스템명·재화명을 수집하십시오.
+개발사(${game.developer})의 공식 홈페이지, 공식 가이드, 공식 Discord·포럼에서만 명칭을 수집하십시오.
+공식 출처에서 확인된 명칭만 [시스템명]·[재화명]에 기재하십시오.
+공식 출처 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+            };
+        })(),
+        2: (() => {
+            return isKorean ? {
+                label: '전문 분석 글 — 국내 (2순위 출처)',
+                queries: [
+                    `${game.title} 인벤 공략 시스템 분석`,
+                    `${game.title} 치지직 게임 라운지 시스템 재화`,
+                    `${game.title} 유튜브 심층 리뷰 시스템 재화`,
+                    `${game.title} AppGamer OR "Pocket Gamer" guide system`,
+                ],
+                instruction: `
+## 이번 회차 핵심 지시
+인벤(inven.co.kr), 치지직(chzzk.naver.com) 게임 라운지, 유튜브 심층 공략·리뷰에서 ${game.title}의 시스템명·재화명을 수집하십시오.
+글로벌 서비스 게임의 경우 AppGamer·Pocket Gamer에도 영문 분석 글이 있을 수 있으므로 함께 확인하십시오.
+치지직은 실제 플레이 영상·클립에서 UI에 표시되는 명칭을 직접 확인하십시오.
 누구나 편집할 수 있는 위키류(나무위키 등)는 이번 회차에서 제외합니다.
-전문 분석 글 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
-        },
-        3: {
-            label: '나무위키·커뮤니티 교차 검증 (3순위 출처)',
-            queries: [
-                `나무위키 ${game.title} 콘텐츠 시스템`,
-                `${game.title} 아카라이브 시스템 재화 공략`,
-            ],
-            instruction: `
+전문 분석 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+            } : {
+                label: '전문 분석 글 — 글로벌 (2순위 출처)',
+                queries: [
+                    `${game.title} Game8 guide system`,
+                    `${game.title} NGA 攻略 system`,
+                    `${game.title} reddit guide system mechanics`,
+                    `${game.title} AppGamer OR "Pocket Gamer" guide system`,
+                    `${game.title} site:store.steampowered.com/app OR site:steamcommunity.com guide`,
+                    `${game.title} twitch clips system guide`,
+                    `${game.title} youtube in-depth review system`,
+                ],
+                instruction: `
 ## 이번 회차 핵심 지시
-나무위키(namu.wiki) 또는 아카라이브(arca.live)에서 ${game.title} 문서를 찾아
-시스템명·재화명을 수집하십시오.
+Game8, NGA, Reddit, AppGamer, Pocket Gamer, Steam 커뮤니티 허브(steamcommunity.com), Twitch 클립, 유튜브 심층 공략·리뷰에서 ${game.title}의 시스템명·재화명을 수집하십시오.
+AppGamer·Pocket Gamer는 모바일 게임 전문 분석 사이트이므로 Steam이 없는 모바일 전용 게임에서 우선 확인하십시오.
+Steam 커뮤니티 허브는 공식에 준하는 플레이어 가이드가 있으므로 PC·콘솔 게임에서 우선 확인하십시오.
+Twitch·유튜브는 실제 플레이 클립·리뷰에서 UI에 표시되는 명칭을 직접 확인하십시오.
+누구나 편집할 수 있는 위키류는 이번 회차에서 제외합니다.
+전문 분석 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+            };
+        })(),
+        3: (() => {
+            return isKorean ? {
+                label: '위키·커뮤니티 교차 검증 — 국내 (3순위 출처)',
+                queries: [
+                    `나무위키 ${game.title} 콘텐츠 시스템`,
+                    `${game.title} 아카라이브 시스템 재화 공략`,
+                ],
+                instruction: `
+## 이번 회차 핵심 지시
+나무위키(namu.wiki) 또는 아카라이브(arca.live)에서 ${game.title} 문서를 찾아 시스템명·재화명을 수집하십시오.
 이 출처는 누구나 편집 가능하므로 신뢰도 낮음으로 처리됩니다.
 복수 출처에서 동일한 명칭이 확인될수록 신뢰도가 높아집니다.`,
-        },
+            } : {
+                label: '위키·커뮤니티 교차 검증 — 글로벌 (3순위 출처)',
+                queries: [
+                    `${game.title} fandom wiki system`,
+                    `${game.title} gamepedia wiki system`,
+                    `${game.title} wiki.gg guide system`,
+                ],
+                instruction: `
+## 이번 회차 핵심 지시
+Fandom(fandom.com), Gamepedia, Wiki.gg에서 ${game.title} 위키 문서를 찾아 시스템명·재화명을 수집하십시오.
+이 출처는 누구나 편집 가능하므로 신뢰도 낮음으로 처리됩니다.
+복수 위키에서 동일한 명칭이 확인될수록 신뢰도가 높아집니다.`,
+            };
+        })(),
     };
 
     const s = strategies[attempt] || strategies[3];
@@ -1208,7 +1268,7 @@ async function main() {
 
         const stats = { full: 0, partial: 0, skipped: 0, diagram: 0 };
 
-        // ── 4. 게임별 역기획서 생성 루프 ────────────────────────────────────
+        // ── 4. 게임별 분석 문서 생성 루프 ────────────────────────────────────
         for (let idx = 0; idx < targetGames.length; idx++) {
             const game     = targetGames[idx];
             const rank     = game.actualRank;
@@ -1244,13 +1304,16 @@ async function main() {
             let factSheet    = '';
             let scoutAborted = false;
             let scoutFormatFallback = false; // 모든 회차가 형식 실패 → Writer 자체 딥서치로 진행
-            const scoutLabels = ['공식 가이드', '나무위키', '커뮤니티'];
 
             for (let sAttempt = 1; sAttempt <= MAX_SCOUT_RETRIES; sAttempt++) {
                 try {
                     await delay(3000);
-                    console.log(`  -> 🔭 [SCOUT ${sAttempt}/${MAX_SCOUT_RETRIES}] ${scoutLabels[sAttempt - 1]} 탐색...`);
-                    const scoutText = await callGeminiWithRetry(scoutModel, buildScoutPrompt(game, sAttempt), 2);
+                    const scoutPrompt = buildScoutPrompt(game, sAttempt);
+                    // 실제 전략 라벨을 프롬프트에서 추출 (첫 줄 ## 검색 전략: 이후)
+                    const labelMatch  = scoutPrompt.match(/## 검색 전략: (.+)/);
+                    const scoutLabel  = labelMatch ? labelMatch[1] : `${sAttempt}회차`;
+                    console.log(`  -> 🔭 [SCOUT ${sAttempt}/${MAX_SCOUT_RETRIES}] ${scoutLabel} 탐색...`);
+                    const scoutText = await callGeminiWithRetry(scoutModel, scoutPrompt, 2);
 
                     if (!scoutText) { continue; }
 
@@ -1328,7 +1391,7 @@ async function main() {
                 console.log(`  -> ℹ️  [SCOUT-FALLBACK] ${reason} → Writer 자체 딥서치로 진행`);
             }
 
-            // 4-4. 역기획서 초안 생성
+            // 4-4. 분석 문서 초안 생성
             const reportRaw = await callGeminiWithRetry(draftModel, buildAnalysisPrompt(game, rank, category, factSheet), MAX_DRAFT_RETRIES);
 
             if (!reportRaw) {
@@ -1381,7 +1444,7 @@ async function main() {
                 .trim();
 
             reportText = [
-                `# [${rank}위] ${game.title} 역기획서`,
+                `# [${rank}위] ${game.title} 분석 문서`,
                 `> **분석 타겟:** ${category}`,
                 `> **핵심 시스템:** ${coreSystemName}`,
                 `> **개발사:** ${game.developer}`,
