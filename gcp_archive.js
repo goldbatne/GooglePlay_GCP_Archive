@@ -240,6 +240,29 @@ const apiKeyQueue = new ApiKeyQueue(
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * PDF 변환 래퍼 — EADDRINUSE 포트 충돌 시 대기 후 재시도
+ * md-to-pdf 내부 서버가 이전 실패 후 포트를 점유한 채 남을 수 있음.
+ * 최대 3회 재시도, 실패 간 5초 대기로 포트 해제 여유를 줌.
+ */
+async function convertToPdf(mdText, options, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const pdfData = await mdToPdf({ content: mdText }, options);
+            if (!pdfData?.content) throw new Error('PDF 엔진이 빈 데이터를 반환했습니다.');
+            return pdfData.content;
+        } catch (err) {
+            const isPortConflict = err.code === 'EADDRINUSE' || err.message?.includes('EADDRINUSE');
+            if (isPortConflict && attempt < maxRetries) {
+                console.log(`  -> ⏱️  [PDF] 포트 충돌(EADDRINUSE) — ${attempt}회 실패. 5초 대기 후 재시도...`);
+                await delay(5000);
+                continue;
+            }
+            throw err;
+        }
+    }
+}
+
 /** KST 기준 날짜 분해 */
 function getKSTDateParts() {
     const now   = new Date();
@@ -1291,15 +1314,8 @@ async function main() {
             console.log(`\n${progress} 매출 ${rank}위: ${game.title}`);
             console.log(`  -> 🎯 분석 영역: [${category}] / 출시일: ${releaseDate}`);
 
-            // 4-3. Scout — 공식 가이드 기준 시스템명 수집
-            // minInstalls 기준으로 최대 시도 횟수 결정: 100만+→3회 / 10만+→2회 / 미만→1회
-            const gameInstalls      = game.minInstalls || 0;
-            const MAX_SCOUT_RETRIES = gameInstalls >= 1_000_000 ? 3
-                                    : gameInstalls >= 100_000   ? 2
-                                    : 1;
-            if (MAX_SCOUT_RETRIES < 3) {
-                console.log(`  -> ℹ️  [SCOUT-LIMIT] 설치수 ${gameInstalls.toLocaleString()}. scout 최대 ${MAX_SCOUT_RETRIES}회.`);
-            }
+            // 4-3. Scout — 공식 가이드 기준 시스템명 수집 (3회 고정)
+            const MAX_SCOUT_RETRIES = 3;
 
             let factSheet    = '';
             let scoutAborted = false;
@@ -1478,9 +1494,7 @@ async function main() {
                     let content = u.content;
                     if (u.tag === 'PDF') {
                         console.log(`  -> 📄 [PDF]  변환 시작...`);
-                        const pdfData = await mdToPdf({ content: mdText }, PDF_OPTIONS);
-                        if (!pdfData?.content) throw new Error('PDF 엔진이 빈 데이터를 반환했습니다.');
-                        content = pdfData.content;
+                        content = await convertToPdf(mdText, PDF_OPTIONS);
                     } else if (u.tag === 'HTML') {
                         console.log(`  -> 🌐 [HTML] 변환 시작...`);
                         const parsedBody = marked.parse(mdText);
