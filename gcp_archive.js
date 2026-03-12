@@ -308,7 +308,8 @@ function getKSTDateParts() {
  * @param {number}          maxRetries
  * @returns {Promise<string>} 응답 텍스트. maxRetries 초과 시 빈 문자열 반환.
  */
-async function callGeminiWithRetry(model, prompt, maxRetries = 3) {
+async function callGeminiWithRetry(modelFactory, prompt, maxRetries = 3) {
+    let model = modelFactory();
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
             await delay(5000);
@@ -316,10 +317,18 @@ async function callGeminiWithRetry(model, prompt, maxRetries = 3) {
             return result.response.text();
         } catch (err) {
             const msg      = err.message || '';
+            const isRateLimit = /429|quota|rate.?limit|resource.?exhausted|retry in/i.test(msg);
             const matched  = msg.match(/retry in (\d+(?:\.\d+)?)s/i);
             const waitTime = matched ? (Math.ceil(parseFloat(matched[1])) + 2) * 1000 : 15000;
-            console.log(`  -> ⏱️  ${waitTime / 1000}초 냉각 후 재시도 (${attempt}/${maxRetries})... [${msg.substring(0, 80)}]`);
-            if (attempt < maxRetries) await delay(waitTime); // 마지막 실패 시 대기 불필요
+
+            if (isRateLimit) {
+                // rate limit: 다음 키로 전환 후 재시도
+                model = modelFactory(); // 새 키로 모델 재생성
+                console.log(`  -> ⏱️  키 전환 + ${waitTime / 1000}초 냉각 후 재시도 (${attempt}/${maxRetries})... [${msg.substring(0, 60)}]`);
+            } else {
+                console.log(`  -> ⏱️  ${waitTime / 1000}초 냉각 후 재시도 (${attempt}/${maxRetries})... [${msg.substring(0, 80)}]`);
+            }
+            if (attempt < maxRetries) await delay(waitTime);
         }
     }
     return '';
@@ -663,7 +672,7 @@ async function processMermaidBlocks(reportText, qaModel, mode = 'pdf') {
 [원본 코드]:
 ${currentMermaid}`;
 
-                const qaResultText = await callGeminiWithRetry(qaModel, qaPrompt, 3);
+                const qaResultText = await callGeminiWithRetry(qaFactory, qaPrompt, 3);
                 if (!qaResultText) { await delay(15000); continue; }
 
                 try {
@@ -1347,9 +1356,14 @@ async function main() {
             const appDescription   = detail.description   || '';
             const appRecentChanges = detail.recentChanges || '';
 
-            // 4-2. Gemini 모델 초기화 (Round-Robin 키 순환)
-            const genAI                          = new GoogleGenerativeAI(apiKeyQueue.next());
-            const { scoutModel, draftModel, qaModel } = initModels(genAI, game.title, game.appId);
+            // 4-2. Gemini 모델 초기화 (Rate limit 시 키 전환 팩토리)
+            // modelFactory: 호출할 때마다 다음 키로 새 모델 인스턴스 반환
+            const makeModels = () => {
+                const genAI = new GoogleGenerativeAI(apiKeyQueue.next());
+                return initModels(genAI, game.title, game.appId);
+            };
+            const draftFactory = () => makeModels().draftModel;
+            const qaFactory    = () => makeModels().qaModel;
 
             const category = pickCategory();
             console.log(`\n${progress} 매출 ${rank}위: ${game.title}`);
@@ -1370,7 +1384,7 @@ async function main() {
                     const labelMatch  = scoutPrompt.match(/## 검색 전략: (.+)/);
                     const scoutLabel  = labelMatch ? labelMatch[1] : `${sAttempt}회차`;
                     console.log(`  -> 🔭 [SCOUT ${sAttempt}/${MAX_SCOUT_RETRIES}] ${scoutLabel} 탐색...`);
-                    const scoutText = await callGeminiWithRetry(scoutModel, scoutPrompt, 2);
+                    const scoutText = await callGeminiWithRetry(() => makeModels().scoutModel, scoutPrompt, 2);
 
                     if (!scoutText) { continue; }
 
@@ -1450,7 +1464,7 @@ async function main() {
             }
 
             // 4-4. 분석 문서 초안 생성
-            const reportRaw = await callGeminiWithRetry(draftModel, buildAnalysisPrompt(game, rank, category, factSheet), MAX_DRAFT_RETRIES);
+            const reportRaw = await callGeminiWithRetry(draftFactory, buildAnalysisPrompt(game, rank, category, factSheet), MAX_DRAFT_RETRIES);
 
             if (!reportRaw) {
                 const errMsg = `[${rank}위] ${game.title} — Draft 생성 ${MAX_DRAFT_RETRIES}회 실패`;
@@ -1472,7 +1486,7 @@ async function main() {
                 // factSheet 주입 상태였다면 제거 후 순수 딥서치로 1회 재시도
                 if (factSheet) {
                     console.log(`  -> ⚠️  [WRITER-IP] IP_CONFUSED — factSheet 제거 후 딥서치 재시도...`);
-                    const retryRaw = await callGeminiWithRetry(draftModel, buildAnalysisPrompt(game, rank, category, ''), MAX_DRAFT_RETRIES);
+                    const retryRaw = await callGeminiWithRetry(draftFactory, buildAnalysisPrompt(game, rank, category, ''), MAX_DRAFT_RETRIES);
                     if (retryRaw && !retryRaw.includes('[IP_CONFUSED]') && !retryRaw.includes('[ABORT_NO_DATA]')) {
                         console.log(`  -> ✅ [WRITER-IP] 딥서치 재시도 성공`);
                         var finalReportRaw = retryRaw;
