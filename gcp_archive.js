@@ -41,7 +41,7 @@ const START_RANK     = parseInt(process.env.START_RANK || '1',  10);
 const END_RANK       = parseInt(process.env.END_RANK   || '50', 10);
 
 const MAX_DRAFT_RETRIES = 3; // Writer API 오류(rate limit) 시 재시도
-const MAX_QA_RETRIES    = 5; // Mermaid 다이어그램 QA Agent 재시도
+const MAX_QA_RETRIES    = 3; // Mermaid 다이어그램 QA Agent 재시도 (내부 callGeminiWithRetry 3회와 구분)
 
 const ANALYSIS_CATEGORIES = [
     '핵심 BM (가챠/강화/패스 등 직접적 매출원)',
@@ -1608,9 +1608,22 @@ async function main() {
             // mdLlmText는 Mermaid 코드블록 원본 유지 (LLM 학습 노이즈 방지)
             // PDF: Base64 인라인 SVG (오프라인 렌더링, GitHub Actions sandbox 대응)
             // HTML: Kroki URL (경량화, 외부 공유 최적화)
-            const { mdText: pdfMdText, brokenCount }  = await processMermaidBlocks(reportTextForVisual, qaModel, 'pdf');
-            const { mdText: htmlMdText }               = await processMermaidBlocks(reportTextForVisual, qaModel, 'html');
-            if (brokenCount > 0) stats.diagram++;
+            const { mdText: pdfMdText, brokenCount }       = await processMermaidBlocks(reportTextForVisual, qaModel, 'pdf');
+            if (brokenCount > 0) {
+                stats.diagram++;
+                stats.skipped++;
+                console.log(`  -> ⏭️  [다이어그램 복구 실패 ${brokenCount}개] 저장 건너뜀 — 다음 실행 시 재시도`);
+                if (idx < targetGames.length - 1) await delay(30000);
+                continue;
+            }
+            const { mdText: htmlMdText, brokenCount: htmlBrokenCount } = await processMermaidBlocks(reportTextForVisual, qaModel, 'html');
+            if (htmlBrokenCount > 0) {
+                stats.diagram++;
+                stats.skipped++;
+                console.log(`  -> ⏭️  [HTML 다이어그램 복구 실패 ${htmlBrokenCount}개] 저장 건너뜀 — 다음 실행 시 재시도`);
+                if (idx < targetGames.length - 1) await delay(30000);
+                continue;
+            }
 
             // 4-7. 파일명 생성 (카테고리 코드 포함)
             const safeTitle    = game.title.replace(/[/\\?%*:|"<>]/g, '_');
@@ -1670,8 +1683,8 @@ async function main() {
         console.log(`  목표 처리량              ${targetGames.length}개`);
         console.log(`  완전 성공 (3포맷 모두)   ${stats.full}개`);
         console.log(`  부분 성공 (1~2포맷)      ${stats.partial}개`);
-        console.log(`  다이어그램 일부 깨짐      ${stats.diagram}개  ← 리포트는 저장됨`);
-        console.log(`  자동 스킵 (데이터 부족)  ${stats.skipped}개`);
+        console.log(`  다이어그램 복구 실패 스킵 ${stats.diagram}개  ← 저장 안 됨`);
+        console.log(`  자동 스킵 (데이터 부족)  ${stats.skipped - stats.diagram}개`);
         console.log(`  완전 실패                ${failedCount}개`);
         console.log(`──────────────────────────────────────────────────────`);
         console.log(`  Scout 성공 (factSheet)   ${stats.scoutOk}개`);
