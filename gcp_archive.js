@@ -772,7 +772,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             overflow-wrap: break-word;
         }
 
-        /* ── 레이아웃 ─────────────────────────────────────────────────── */
         .report-container {
             max-width: 860px;
             margin: 0 auto;
@@ -805,10 +804,8 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             margin: 6px 0;
             border-radius: 0 8px 8px 0;
         }
-        /* 헤더 구역 이후 본문 */
         .report-body { padding: 40px 48px 48px; }
 
-        /* ── 제목 ─────────────────────────────────────────────────────── */
         h1 {
             font-size: 1.6em; font-weight: 800; color: #0F172A;
             border-bottom: 3px solid var(--primary);
@@ -826,7 +823,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         }
         h4 { font-size: 0.95em; font-weight: 600; color: #475569; margin: 14px 0 6px; }
 
-        /* ── 본문 요소 ────────────────────────────────────────────────── */
         p  { margin: 10px 0; }
         hr { border: 0; border-top: 1px solid var(--border); margin: 28px 0; }
 
@@ -848,7 +844,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         strong { color: #0F172A; }
         em     { color: var(--text-muted); font-style: italic; }
 
-        /* ── 코드 ─────────────────────────────────────────────────────── */
         code {
             font-family: 'JetBrains Mono', 'Courier New', monospace;
             font-size: 0.84em;
@@ -879,7 +874,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             word-break: normal;
         }
 
-        /* ── 표 ───────────────────────────────────────────────────────── */
         .table-wrap {
             overflow-x: auto;
             margin: 20px 0;
@@ -935,10 +929,7 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         }
         .source-details summary:hover { background: #E2E8F0; }
         .source-details summary::before { content: '🔗 '; font-size: 0.9em; }
-        .source-details ul {
-            margin: 8px 0 0 4px;
-            padding-left: 16px;
-        }
+        .source-details ul { margin: 8px 0 0 4px; padding-left: 16px; }
         .source-details li { margin: 3px 0; }
         .source-details a {
             color: var(--text-muted);
@@ -948,7 +939,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         }
         .source-details a:hover { color: var(--primary); text-decoration: underline; }
 
-        /* ── 다이어그램 ───────────────────────────────────────────────── */
         .diagram-wrap {
             text-align: center;
             margin: 24px 0;
@@ -965,7 +955,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             display: inline-block;
         }
 
-        /* ── 이미지 ───────────────────────────────────────────────────── */
         img:not(.diagram-wrap img) {
             max-width: 100%;
             height: auto;
@@ -974,7 +963,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             border-radius: var(--radius);
         }
 
-        /* ── 모바일 ───────────────────────────────────────────────────── */
         @media (max-width: 640px) {
             body { padding: 0 0 48px; font-size: 14px; }
             .report-header  { padding: 28px 20px 24px; }
@@ -999,7 +987,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         </div>
     </div>
     <script>
-        // 첫 번째 h1 + 그 뒤 blockquote들을 헤더 영역으로 분리
         (function () {
             const container = document.getElementById('report-content');
             const firstH1   = container.querySelector('h1');
@@ -1010,7 +997,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             const body   = document.createElement('div');
             body.className   = 'report-body';
 
-            // 노드를 직접 이동 (중복 DOM 방지, 메모리 효율)
             header.appendChild(firstH1);
             let node = container.firstElementChild;
             while (node) {
@@ -1020,7 +1006,7 @@ function buildHtmlReport(gameTitle, bodyHtml) {
                 } else if (node.tagName !== 'HR') {
                     body.appendChild(node);
                 } else {
-                    node.remove(); // HR은 헤더 구분선 역할이 끝났으므로 제거
+                    node.remove();
                 }
                 node = next;
             }
@@ -1034,11 +1020,9 @@ function buildHtmlReport(gameTitle, bodyHtml) {
             });
 
             // 출처 blockquote → <details> 접이식 처리
-            // "출처:" 로 시작하는 blockquote 안의 긴 URL 목록을 숨김 처리
             body.querySelectorAll('blockquote').forEach(bq => {
                 const text = bq.textContent || '';
                 if (!text.trim().startsWith('출처:')) return;
-                // URL만 추출해 링크 목록 생성
                 const urls = [...text.matchAll(/https?:\/\/[^\s,]+/g)].map(m => m[0]);
                 if (urls.length === 0) return;
                 const details = document.createElement('details');
@@ -1050,7 +1034,6 @@ function buildHtmlReport(gameTitle, bodyHtml) {
                 urls.forEach(url => {
                     const li = document.createElement('li');
                     const a  = document.createElement('a');
-                    // grounding URL은 도메인만, 일반 URL은 전체 표시
                     const isGrounding = url.includes('vertexaisearch') || url.includes('grounding');
                     a.href        = url;
                     a.textContent = isGrounding ? '[검색 출처]' : url.replace(/^https?:\/\//, '');
@@ -1071,6 +1054,43 @@ function buildHtmlReport(gameTitle, bodyHtml) {
 </html>`;
 }
 
+
+// =============================================================================
+//  📺  fetchYouTubeScoutData — YouTube 자막·설명에서 수치·명칭 수집 (4회차)
+//  YouTube Data API v3: 검색 → 상위 3개 영상 snippet(설명+제목) 수집
+//  YOUTUBE_API_KEY 없으면 null 반환 → Scout 4회차 자동 스킵
+// =============================================================================
+
+async function fetchYouTubeScoutData(game) {
+    const apiKey = process.env.YOUTUBE_API_KEY;
+    if (!apiKey) return null;
+
+    const queries = [
+        `${game.title} 공략 시스템 수치 쿨타임`,
+        `${game.title} guide system stats cooldown`,
+        `${game.title} review gameplay mechanics`,
+    ];
+
+    const snippets = [];
+
+    for (const q of queries) {
+        try {
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(q)}&type=video&maxResults=3&key=${apiKey}`;
+            const res  = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (!data.items) continue;
+            for (const item of data.items) {
+                const s = item.snippet;
+                // 제목 + 설명 앞 500자만 수집 (토큰 절약)
+                snippets.push(`[영상제목] ${s.title}\n[설명] ${(s.description || '').substring(0, 500)}`);
+            }
+        } catch { continue; }
+    }
+
+    if (snippets.length === 0) return null;
+    return snippets.join('\n\n---\n\n');
+}
 
 // =============================================================================
 //  🔭  buildScoutPrompt — 공식 가이드 기준 시스템명 수집 (최대 3회, 실패 시 ABORT)
@@ -1095,94 +1115,100 @@ function buildScoutPrompt(game, attempt = 1) {
             return isKorean ? {
                 label: '공식 가이드·공홈·카페 — 국내 (1순위 출처)',
                 queries: [
-                    `${game.title} 공식 홈페이지`,
-                    `${game.title} 공식 가이드 시스템 소개`,
-                    `${game.title} ${game.developer} 공식 홈페이지 게임 소개 시스템`,
+                    `${game.title} 공식 홈페이지 시스템 소개`,
+                    `${game.title} ${game.developer} 공식 가이드 재화 시스템`,
                     `${game.title} 네이버 공식카페 공략 시스템 재화`,
+                    `${game.title} 인벤 공략 시스템 수치 재화`,
+                    `${game.title} 루리웹 공략 시스템 분석`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
-개발사(${game.developer})가 공식적으로 배포한 공식 홈페이지, 가이드, 네이버 공식 카페에서만 명칭을 수집하십시오.
-공식 홈페이지를 최우선으로 확인하고, 시스템명·재화명이 UI 또는 공지에 표기된 그대로 수집하십시오.
-공식 출처에서 확인된 명칭만 [시스템명]·[재화명]에 기재하십시오.
-공식 출처 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+개발사(${game.developer})의 공식 홈페이지·네이버 공식 카페를 최우선으로 확인하십시오.
+공식 출처에서 시스템명·재화명이 UI에 표기된 그대로 수집하십시오.
+공식 출처가 부족하면 인벤(inven.co.kr)·루리웹(ruliweb.com) 공략 게시판에서 보완하십시오.
+공식 출처 또는 전문 공략 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
             } : {
                 label: '공식 가이드·공홈·커뮤니티 — 글로벌 (1순위 출처)',
                 queries: [
-                    `${game.title} official website`,
-                    `${game.title} official guide system introduction`,
-                    `${game.title} ${game.developer} official site game system`,
+                    `${game.title} official website system guide`,
+                    `${game.title} ${game.developer} official guide mechanics`,
                     `${game.title} official discord OR forum system guide`,
+                    `${game.title} Game8 guide system mechanics`,
+                    `${game.title} AppGamer guide system currency`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
-개발사(${game.developer})의 공식 홈페이지를 최우선으로 확인하고, 공식 가이드, 공식 Discord·포럼에서 시스템명·재화명을 수집하십시오.
-공식 홈페이지에서 UI 또는 공지에 표기된 명칭을 그대로 수집하십시오.
-공식 출처에서 확인된 명칭만 [시스템명]·[재화명]에 기재하십시오.
-공식 출처 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+개발사(${game.developer})의 공식 홈페이지·Discord·포럼을 최우선으로 확인하십시오.
+공식 출처에서 UI에 표기된 시스템명·재화명을 그대로 수집하십시오.
+공식 출처가 부족하면 Game8(game8.co)·AppGamer(appgamer.com)·Pocket Gamer에서 보완하십시오.
+공식 출처 또는 전문 공략 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
             };
         })(),
         2: (() => {
             return isKorean ? {
-                label: '전문 분석 글 — 국내 (2순위 출처)',
+                label: '전문 분석 글·수치 공략 — 국내 (2순위 출처)',
                 queries: [
-                    `${game.title} 인벤 공략 시스템 분석`,
-                    `${game.title} 치지직 게임 라운지 시스템 재화`,
-                    `${game.title} 유튜브 심층 리뷰 시스템 재화`,
-                    `${game.title} AppGamer OR "Pocket Gamer" guide system`,
+                    `site:inven.co.kr ${game.title} 공략 시스템 수치`,
+                    `site:ruliweb.com ${game.title} 공략 재화 수치`,
+                    `${game.title} 인벤 OR 루리웹 쿨타임 수치 효율`,
+                    `${game.title} 유튜브 심층 공략 수치 시스템 재화`,
+                    `${game.title} 아프리카TV OR 치지직 공략 시스템`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
-인벤(inven.co.kr), 치지직(chzzk.naver.com) 게임 라운지, 유튜브 심층 공략·리뷰에서 ${game.title}의 시스템명·재화명을 수집하십시오.
-글로벌 서비스 게임의 경우 AppGamer·Pocket Gamer에도 영문 분석 글이 있을 수 있으므로 함께 확인하십시오.
-치지직은 실제 플레이 영상·클립에서 UI에 표시되는 명칭을 직접 확인하십시오.
-누구나 편집할 수 있는 위키류(나무위키 등)는 이번 회차에서 제외합니다.
-전문 분석 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+인벤(inven.co.kr)·루리웹(ruliweb.com) 공략 게시판을 최우선으로 확인하십시오.
+**수치 데이터 (처리 시간·쿨타임·재화 획득량·확률) 가 언급된 글을 우선 탐색하십시오.**
+유튜브·치지직·아프리카TV 심층 공략 영상에서 UI에 표시된 명칭과 수치를 직접 확인하십시오.
+위키류(나무위키 등)는 이번 회차에서 제외합니다.
+전문 공략 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
             } : {
-                label: '전문 분석 글 — 글로벌 (2순위 출처)',
+                label: '전문 분석 글·수치 공략 — 글로벌 (2순위 출처)',
                 queries: [
-                    `${game.title} Game8 guide system`,
-                    `${game.title} NGA 攻略 system`,
-                    `${game.title} reddit guide system mechanics`,
-                    `${game.title} AppGamer OR "Pocket Gamer" guide system`,
-                    `${game.title} site:store.steampowered.com/app OR site:steamcommunity.com guide`,
-                    `${game.title} twitch clips system guide`,
-                    `${game.title} youtube in-depth review system`,
+                    `site:game8.co ${game.title} guide system mechanics`,
+                    `site:reddit.com ${game.title} guide system mechanics numbers`,
+                    `${game.title} NGA 攻略 系统 数值`,
+                    `${game.title} AppGamer OR "Pocket Gamer" guide system stats`,
+                    `${game.title} site:steamcommunity.com guide system`,
+                    `${game.title} youtube guide system cooldown stats mechanics`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
-Game8, NGA, Reddit, AppGamer, Pocket Gamer, Steam 커뮤니티 허브(steamcommunity.com), Twitch 클립, 유튜브 심층 공략·리뷰에서 ${game.title}의 시스템명·재화명을 수집하십시오.
-AppGamer·Pocket Gamer는 모바일 게임 전문 분석 사이트이므로 Steam이 없는 모바일 전용 게임에서 우선 확인하십시오.
-Steam 커뮤니티 허브는 공식에 준하는 플레이어 가이드가 있으므로 PC·콘솔 게임에서 우선 확인하십시오.
-Twitch·유튜브는 실제 플레이 클립·리뷰에서 UI에 표시되는 명칭을 직접 확인하십시오.
-누구나 편집할 수 있는 위키류는 이번 회차에서 제외합니다.
-전문 분석 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
+Game8(game8.co)·Reddit·NGA·AppGamer·Steam 커뮤니티 허브를 우선 확인하십시오.
+**수치 데이터 (처리 시간·쿨타임·재화 획득량·확률·스탯) 가 언급된 글을 우선 탐색하십시오.**
+유튜브 심층 공략·리뷰에서 UI에 표시된 명칭과 수치를 직접 확인하십시오.
+위키류는 이번 회차에서 제외합니다.
+전문 공략 글 또는 영상 URL이 없으면 이번 회차는 실패로 처리됩니다.`,
             };
         })(),
         3: (() => {
             return isKorean ? {
                 label: '위키·커뮤니티 교차 검증 — 국내 (3순위 출처)',
                 queries: [
-                    `나무위키 ${game.title} 콘텐츠 시스템`,
-                    `${game.title} 아카라이브 시스템 재화 공략`,
+                    `나무위키 ${game.title} 시스템 수치 재화`,
+                    `site:namu.wiki ${game.title} 시스템 공략`,
+                    `${game.title} 아카라이브 시스템 수치 재화 공략`,
+                    `site:arca.live ${game.title} 시스템 공략 수치`,
+                    `${game.title} 디시인사이드 OR 네이버카페 공략 수치 시스템`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
 나무위키(namu.wiki) 또는 아카라이브(arca.live)에서 ${game.title} 문서를 찾아 시스템명·재화명을 수집하십시오.
-이 출처는 누구나 편집 가능하므로 신뢰도 낮음으로 처리됩니다.
-복수 출처에서 동일한 명칭이 확인될수록 신뢰도가 높아집니다.`,
+나무위키·아카라이브는 게임 수치·시스템 정보가 상세히 정리된 경우가 많습니다. 적극 활용하되 확인된 명칭만 기재하십시오.
+이전 회차에서 수집된 명칭과 교차검증하여 일치하면 신뢰도 높음, 신규 명칭이면 보통으로 표기하십시오.`,
             } : {
                 label: '위키·커뮤니티 교차 검증 — 글로벌 (3순위 출처)',
                 queries: [
-                    `${game.title} fandom wiki system`,
-                    `${game.title} gamepedia wiki system`,
-                    `${game.title} wiki.gg guide system`,
+                    `site:fandom.com ${game.title} wiki system mechanics`,
+                    `site:wiki.gg ${game.title} system guide stats`,
+                    `${game.title} fandom wiki system currency cooldown`,
+                    `${game.title} gamepedia OR wiki.gg mechanics numbers`,
+                    `${game.title} reddit community tips system numbers`,
                 ],
                 instruction: `
 ## 이번 회차 핵심 지시
 Fandom(fandom.com), Gamepedia, Wiki.gg에서 ${game.title} 위키 문서를 찾아 시스템명·재화명을 수집하십시오.
-이 출처는 누구나 편집 가능하므로 신뢰도 낮음으로 처리됩니다.
-복수 위키에서 동일한 명칭이 확인될수록 신뢰도가 높아집니다.`,
+팬덤 위키는 게임 수치·시스템 구조가 상세히 정리된 경우가 많습니다. 적극 활용하되 확인된 명칭만 기재하십시오.
+이전 회차에서 수집된 명칭과 교차검증하여 일치하면 신뢰도 높음, 신규 명칭이면 보통으로 표기하십시오.`,
             };
         })(),
     };
@@ -1235,9 +1261,9 @@ ${s.instruction}
 [출처신뢰도] 높음 / 보통 / 낮음
 
 ## 출처 신뢰도 기준
-- 높음: 공식 가이드·공홈·카페에서 직접 확인
-- 보통: 인벤·Game8·NGA·유튜브 심층 공략 등 전문 분석 글에서 확인
-- 낮음: 나무위키·아카라이브 등 누구나 편집 가능한 출처에서만 확인
+- 높음: 공식 가이드·공홈·카페에서 직접 확인, 또는 복수 출처에서 동일 명칭 교차 확인
+- 보통: 인벤·Game8·NGA·유튜브 심층 공략·나무위키·위키 등 단일 출처에서 확인
+- 낮음: 불확실한 출처 단독, 또는 명칭 유추가 의심되는 경우
 
 ## 중단 조건
 - ${game.title}이 아닌 다른 게임 명칭이 섞이면: [IP_CONFUSED]
@@ -1264,7 +1290,7 @@ function buildAnalysisPrompt(game, rank, category, factSheet = '') {
 
 ### 혼동 방지 체크리스트
 - [ ] 모든 검색에 "${game.title}" + 앱ID "${game.appId}" 를 함께 사용했는가?
-- [ ] 같은 IP의 다른 게임(예: "메이플스토리M" ≠ "메이플 키우기") 데이터를 혼용하지 않았는가?
+- [ ] 같은 IP의 다른 게임 데이터를 혼용하지 않았는가?
 - [ ] 확인 불가 데이터는 추측 없이 **"데이터 비공개 (검색 불가)"** 로 표기했는가?
 
 ---
@@ -1281,67 +1307,137 @@ ${factSheet ? `${factSheet}
 1. [시스템명] 목록의 이름 → 반드시 그대로 사용 (동의어·축약·번역 금지)
 2. [재화명] 목록의 이름   → 반드시 그대로 사용
 3. 목록에 없는 명칭       → "데이터 비공개 (검색 불가)"로 표기
-4. [출처신뢰도]가 낮음    → 해당 명칭 사용 시 *(출처 미검증)* 주석 추가
+4. 출처 신뢰도 낮음 항목  → 해당 명칭 사용 시 *(출처 미검증)* 주석 추가
 ` : '⚠️ 팩트 사전 없음 — 딥 서치 직접 확인. 확인 불가 명칭은 데이터 비공개 표기.'}
 
 # Step 1: 분석 시스템 특정
 1. [${category}] 영역의 시그니처 시스템 1개를 [고정 어휘 사전]의 [시스템명]에서 선택하십시오.
 2. 유저가 게임 내에서 직접 클릭하는 **정확한 UI 텍스트(메뉴명)** 기준으로 분석하십시오.
 
-# Step 2: 분석 문서 작성 (8개 항목)
+# Step 2: 역기획 분석 문서 작성 — 7섹션 (원본 수준 심층 문서)
 
 ## 작성 원칙
-- **수집 항목 (01·02·03·04·06)**: 검색으로 확인된 사실만 기술. 확인 불가는 "데이터 비공개 (검색 불가)" 표기. 항목 말미에 \`> 출처: URL\` 필수.
-- **분석 항목 (05·07)**: 위 수집 항목에서 확인된 팩트에 한해서만 추론. 팩트 없는 항목은 분석하지 말 것. 단일 출처 기반 추론은 *(단일 출처)* 주석.
+- **팩트 항목**: 검색으로 확인된 사실만 기술. 확인 불가는 "데이터 비공개 (검색 불가)" 표기. 항목 말미에 \`> 출처: URL\` 필수.
+- **분석 항목**: 팩트 항목에서 확인된 근거에 한해서만 추론. 근거 없는 주장 금지. 단일 출처 기반 추론은 *(단일 출처)* 주석.
+- **다이어그램**: 각 섹션에 지정된 Mermaid 다이어그램을 반드시 포함할 것. 데이터 부족 시에도 확인된 요소만으로 최소 구조 생성.
+- **깊이 기준**: 각 항목은 최소 3문장 이상. 수치·명칭·흐름이 구체적으로 명시된 경우만 작성.
 
 ---
 
-01. **시스템 개요**
-    검색으로 확인된 시스템 정의·구성 요소 요약. 공식 설명 우선.
+## 01. 정의서 (Definition)
+팩트 항목. 아래 소항목을 모두 작성하십시오.
 
-02. **시스템 구조도**
-    확인된 서브시스템 간 연결 관계 (★ Mermaid \`graph LR\` 강제)
+### 1.1 시스템 개요
+검색으로 확인된 시스템 정의·구성 요소·해금 조건 요약. 공식 설명 우선.
 
-03. **이용 플로우차트**
-    확인된 유저 핵심 이용 흐름 (★ Mermaid \`flowchart TD\` 강제)
+### 1.2 핵심 목적
+- **유저 관점**: 이 시스템을 통해 유저가 얻는 것 (보상·진행·재미)
+- **사업 관점**: 수익화·리텐션·트래픽 유도 관점에서의 역할
 
-04. **UX 명세**
-    검색·영상·스크린샷으로 확인된 인터랙션·상태 전이 명세. 확인 불가 항목은 데이터 비공개 표기.
+### 1.3 용어 정의
+확인된 게임 내 고유 용어·명칭을 표 형식으로 정리. (★ 표 강제)
+| 용어 | 정의 | 비고 |
 
-05. **기획 의도 분석** ← 분석 항목
-    위 01~04에서 수집된 팩트를 근거로 아래 두 가지를 분석하십시오.
-    - **설계 의도**: 이 시스템이 왜 이렇게 설계됐는가. 수익화·리텐션·트래픽 유도 관점에서 의도를 추론.
-    - **심리 설계**: 수집된 팩트(수치·흐름·구조)에서 역으로 읽히는 심리 트리거(FOMO·손실 회피·보상 스케줄 등)를 구체적 근거와 함께 기술. 근거 없는 트리거 명칭 나열 금지.
+### 1.4 분석 범위 및 관련 시스템
+이 시스템과 연결된 다른 시스템·재화·콘텐츠 열거.
 
-06. **수치 및 데이터 테이블**
-    공식·커뮤니티에서 확인된 재화 Source/Sink·수치 밸런스 (★ 표 형식 강제. 미확인 수치는 셀에 "비공개" 표기)
+---
 
-07. **문제점 및 개선 제안** ← 분석 항목
-    위 수집된 팩트 기반으로 이 시스템의 구조적 문제점을 짚고, 구체적인 개선 방향을 제안하십시오. (★ 표 형식 강제)
-    - **문제점**: 유저 경험·수익 구조·밸런스 관점에서 실제로 확인되는 문제. 추측 기반 문제 제기 금지.
-    - **개선 제안**: 동일 장르 타 게임의 검색 가능한 사례를 근거로 구체적 대안 제시. 근거 없는 제안 금지.
+## 02. 구조도 (Architecture)
+팩트 항목.
 
-08. **참고 문헌**
-    위 항목들의 근거 URL 목록 (★ 필수. 반드시 ${game.title} 관련 URL만. 최소 2개)
+### 2.1 메인 시스템 구조도
+확인된 서브시스템 간 연결 관계. (★ Mermaid \`graph LR\` 강제)
+
+### 2.2 서브시스템 구조도
+주요 서브시스템 1개를 선택해 내부 구조 상세화. (★ Mermaid \`graph TD\` 강제)
+데이터가 부족한 경우 확인된 요소만으로 간략 구조도 생성.
+
+---
+
+## 03. 플로우차트 (Flowchart)
+팩트 항목.
+
+### 3.1 메인 이용 플로우
+유저의 핵심 이용 흐름 전체. (★ Mermaid \`flowchart TD\` 강제)
+
+### 3.2 핵심 서브 플로우
+가장 중요한 서브 플로우 1개 (예: 획득·소비·강화 등). (★ Mermaid \`flowchart TD\` 강제)
+
+---
+
+## 04. 상세 명세서 (Specification)
+팩트 항목. 확인된 항목만 작성. 미확인은 "데이터 비공개 (검색 불가)" 표기.
+
+### 4.1 UI 레이아웃
+확인된 화면 구성·메뉴 뎁스·주요 버튼 배치 기술.
+
+### 4.2 인터랙션 명세
+확인된 주요 유저 액션과 시스템 반응 (입력 → 출력 형태로 기술).
+
+### 4.3 상태 전이
+확인된 시스템 내 주요 상태 변화. (★ Mermaid \`stateDiagram-v2\` 강제)
+데이터 부족 시 확인된 2개 이상의 상태만으로 최소 다이어그램 생성.
+
+---
+
+## 05. 데이터 테이블 (Data Table)
+팩트 항목. 공식·커뮤니티에서 확인된 수치만 기재. 미확인 수치는 "비공개" 표기.
+
+### 5.1 재화 Source / Sink 테이블
+확인된 재화 획득처와 소모처. (★ 표 강제)
+| 재화명 | 주요 획득처 | 주요 소모처 | 일일 획득량(추정) |
+
+### 5.2 핵심 수치 밸런스
+확인된 수치·비율·쿨타임·확률 등. (★ 표 강제)
+| 항목 | 수치 | 출처 |
+
+---
+
+## 06. 기획 의도 및 심리 설계 분석 (Design Intent)
+분석 항목. 위 01~05에서 수집된 팩트만을 근거로 작성.
+
+### 6.1 설계 의도
+이 시스템이 왜 이렇게 설계됐는가. 수익화·리텐션·트래픽 유도 관점에서 근거 기반 추론.
+
+### 6.2 심리 설계
+수집된 팩트(수치·흐름·구조)에서 역으로 읽히는 심리 트리거를 구체적 근거와 함께 기술.
+근거 없는 트리거 명칭 나열 금지. FOMO·손실 회피·보상 스케줄·사회적 비교 등 해당하는 것만.
+
+---
+
+## 07. 문제점 및 개선 제안 (Issues & Suggestions)
+분석 항목. 수집된 팩트 기반으로만 작성. (★ 표 강제)
+
+### 7.1 문제점
+| 항목 | 문제 내용 | 근거 |
+
+### 7.2 개선 제안
+| 문제 항목 | 개선 방향 | 타 게임 사례 |
+동일 장르 타 게임의 검색 가능한 사례를 근거로 구체적 대안 제시.
 
 ---
 
 # ★ 딥 서치 철칙
 1. 모든 검색은 "${game.title}" + 앱ID "${game.appId}" 기준. 다른 게임이 검색되면 즉시 키워드 변경.
-2. 출처 우선순위를 반드시 준수하십시오:
-   - **1순위**: 공식 사이트·공식 카페·개발사 공지 (가장 신뢰)
-   - **2순위**: 인벤 공략·Game8·NGA·유튜브 심층 리뷰 등 전문 분석 글
-   - **3순위**: 나무위키·아카라이브 등 누구나 편집 가능한 출처 (최후 보완용)
-   - 출처 표기 순서도 이 위계를 따를 것. 나무위키가 있더라도 공식·전문 출처가 있으면 나중에 표기.
-3. 1·2순위 검색 부족 시에만 3순위로 보완. 3순위만 남은 항목은 *(나무위키 단독)* 주석 추가.
-4. 복수 출처 교차 검증. 단일 출처만 있으면 해당 데이터에 *(단일 출처)* 주석.
+2. 출처 우선순위:
+   - **1순위**: 공식 사이트·공식 카페·개발사 공지
+   - **2순위**: 인벤(site:inven.co.kr)·루리웹(site:ruliweb.com)·Game8(site:game8.co)·NGA·유튜브 심층 공략·리뷰
+   - **3순위**: 나무위키(site:namu.wiki)·아카라이브(site:arca.live)·팬덤 위키·레딧 (교차검증 소스로 적극 활용)
+3. 나무위키·아카라이브·팬덤 위키는 수치·테이블 정보가 상세한 경우 적극 인용. 반드시 교차검증 후 *(단독)* 주석 없이 사용 가능.
+4. **수치 데이터 탐색 강화**: 처리 시간·쿨타임·재화 획득량·확률·스탯 수치는 반드시 별도 검색으로 확인 시도.
+   - 검색어 예: "${game.title} 쿨타임 수치", "${game.title} cooldown stats", "${game.title} 재화 획득량 하루"
+   - 커뮤니티(인벤·레딧·나무위키)에서 유저 측정값도 적극 활용. 출처 명시 후 *(커뮤니티 측정값)* 주석.
+   - 수치를 끝내 찾지 못한 경우에만 "데이터 비공개 (검색 불가)" 표기. 섣불리 포기 금지.
+5. 복수 출처 교차 검증 필수. 단일 출처만 있으면 *(단일 출처)* 주석.
+6. 1~3순위 모두 검색 불가 시에만 [ABORT_NO_DATA] 출력.
 
 # Output Constraints
 * [Mermaid 규칙]  화살표 텍스트(\`-->|텍스트|\`)는 10자 이내. 대괄호/중괄호 안에 콜론·따옴표·쉼표 절대 금지.
 * [노드 ID 규칙]  노드 ID는 반드시 띄어쓰기 없는 영문+숫자 조합(예: A1, NodeB2). 한글 노드 ID 절대 금지.
-* [subgraph 규칙] 모든 \`subgraph\` 이름은 반드시 큰따옴표로 감쌀 것. 예: \`subgraph "이름"\`
-* [erDiagram 규칙] \`erDiagram\` 속성은 따옴표·코멘트 없이 '타입 이름' 형식만. 예: \`string name\`
-* [금지 패턴]    노드 레이블 괄호 중첩(\`([...])\`) 절대 금지. 화살표 기호 혼용(\`-->\`/\`---\`) 절대 금지.
+* [subgraph 규칙] 모든 \`subgraph\` 이름은 반드시 큰따옴표로 감쌀 것.
+* [erDiagram 규칙] \`erDiagram\` 속성은 따옴표·코멘트 없이 '타입 이름' 형식만.
+* [금지 패턴]    노드 레이블 괄호 중첩(\`([...])\`) 절대 금지. 화살표 기호 혼용 절대 금지.
 * 데이터가 전혀 없는 비주류 게임이면 [ABORT_NO_DATA] 한 줄만 출력하고 종료.
 * 타겟 게임이 아닌 다른 게임의 데이터가 섞였다고 판단되면 [IP_CONFUSED] 한 줄만 출력하고 종료.
 `;
@@ -1356,6 +1452,10 @@ async function main() {
 
     // ── 0. 환경 변수 사전 검증 ──────────────────────────────────────────────
     const REQUIRED_ENV = ['GCP_CLIENT_ID', 'GCP_CLIENT_SECRET', 'GCP_REFRESH_TOKEN', 'GDRIVE_FOLDER_ID', 'GEMINI_API_KEY'];
+    // YOUTUBE_API_KEY는 선택 사항 — 없으면 Scout 4회차 자동 스킵
+    if (process.env.YOUTUBE_API_KEY) {
+        console.log('  -> 📺 YouTube API 키 감지 — Scout 4회차 활성화');
+    }
     const missingEnv   = REQUIRED_ENV.filter(k => !process.env[k]);
     if (missingEnv.length > 0) {
         console.error(`❌ 필수 환경 변수 누락: ${missingEnv.join(', ')}`);
@@ -1405,7 +1505,7 @@ async function main() {
             // 게임 간 RPM 버퍼 — 첫 게임은 스킵, 이후 90초 대기
             // (프로젝트당 RPM 10 × 5키 = 분당 50회. 게임 1개당 최소 7~10회 호출이므로
             //  90초 간격이면 각 게임 처리 중 키 풀 냉각 시간 확보)
-            if (idx > 0) await delay(90000);
+            if (idx > 0) await delay(120000);
 
             const game     = targetGames[idx];
             const rank     = game.actualRank;
@@ -1432,8 +1532,10 @@ async function main() {
             console.log(`\n${progress} 매출 ${rank}위: ${game.title}`);
             console.log(`  -> 🎯 분석 영역: [${category}] / 출시일: ${releaseDate}`);
 
-            // 4-3. Scout — 공식 가이드 기준 시스템명 수집 (3회 고정)
-            const MAX_SCOUT_RETRIES = 3;
+            // 4-3. Scout — 공식 가이드 기준 시스템명 수집 (최대 4회)
+            // 4회차: YouTube Data API 자막·설명 수집 (YOUTUBE_API_KEY 없으면 자동 스킵)
+            const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+            const MAX_SCOUT_RETRIES = YOUTUBE_API_KEY ? 4 : 3;
 
             let factSheet    = '';
             let scoutAborted = false;
@@ -1441,6 +1543,44 @@ async function main() {
 
             for (let sAttempt = 1; sAttempt <= MAX_SCOUT_RETRIES; sAttempt++) {
                 try {
+                    // ── 4회차: YouTube 자막·설명 수집 ──────────────────────
+                    if (sAttempt === 4) {
+                        console.log(`  -> 📺 [SCOUT 4/${MAX_SCOUT_RETRIES}] YouTube 영상 수치·명칭 수집...`);
+                        const ytData = await fetchYouTubeScoutData(game);
+                        if (!ytData) {
+                            console.log(`  -> ⚠️  [SCOUT-YT] YouTube 데이터 없음. FALLBACK.`);
+                            break;
+                        }
+                        // YouTube 데이터를 Gemini로 요약 → factSheet 보완
+                        const ytPrompt = [
+                            '아래는 YouTube 영상 제목과 설명에서 수집한 "' + game.title + '" 관련 데이터입니다.',
+                            '게임 내 시스템명·재화명·수치(쿨타임/처리시간/획득량 등)를 추출해 기존 팩트 사전을 보완하십시오.',
+                            '',
+                            '## YouTube 수집 데이터',
+                            ytData,
+                            '',
+                            '## 기존 팩트 사전 (보완 대상)',
+                            factSheet || '없음',
+                            '',
+                            '## 출력 형식 (기존 팩트 사전에 수치 정보를 추가·보완한 결과만 출력)',
+                            '[시스템명]  (쉼표 구분)',
+                            '[재화명]    (쉼표 구분)',
+                            '[수치데이터] (항목명: 수치 형식, 쉼표 구분. 예: 쿨타임: 8초, 일일획득량: 500)',
+                            '[출처URL]   (YouTube URL)',
+                            '[출처신뢰도] 보통',
+                        ].join('\n');
+                        const ytResult = await callGeminiWithRetry(() => makeModels().scoutModel, ytPrompt, 2);
+                        if (ytResult && ytResult.includes('[시스템명]')) {
+                            // 기존 factSheet에 YouTube 수치 데이터 병합
+                            const numericMatch = ytResult.match(/\[수치데이터\][^\n]*/);
+                            if (numericMatch) {
+                                factSheet = (factSheet || '') + '\n\n## YouTube 수집 수치 데이터\n' + numericMatch[0];
+                            }
+                            console.log('  -> ✅ [SCOUT-YT] YouTube 수치 데이터 병합 완료');
+                        }
+                        break; // 4회차는 보완 목적 — 성공 여부 무관하게 루프 종료
+                    }
+
                     await delay(3000);
                     const scoutPrompt = buildScoutPrompt(game, sAttempt);
                     // 실제 전략 라벨을 프롬프트에서 추출 (첫 줄 ## 검색 전략: 이후)
@@ -1470,6 +1610,8 @@ async function main() {
                     const trustMatch = scoutText.match(/\[출처신뢰도\]\s*(높음|보통|낮음)/);
                     const trust      = trustMatch ? trustMatch[1] : '낮음';
 
+                    // 신뢰도 낮음: 다음 회차가 있으면 계속 시도, 마지막 회차는 수용
+                    // (나무위키 등 위키 소스는 교차검증 소스로 활용 — 무조건 버리지 않음)
                     if (trust === '낮음' && sAttempt < MAX_SCOUT_RETRIES) {
                         console.log(`  -> ⚠️  [SCOUT-LOW ${sAttempt}회] 신뢰도 낮음. 다음 회차로.`);
                         continue;
