@@ -698,26 +698,19 @@ ${currentMermaid}`;
 
         // ── 결과 반영 ────────────────────────────────────────────────────
         if (fixedMermaid) {
-            if (mode === 'html') {
-                // HTML: Kroki URL 방식 — 외부 CDN 참조, 파일 크기 절감
+            // PDF/HTML 공통: Base64 인라인 SVG — 오프라인 렌더링, 장기 보존 안전
+            // cachedSvg: Fast-Track 검증 시 이미 받은 SVG → 재사용해 Kroki 요청 절약
+            try {
+                const svgStr = cachedSvg ?? await fetch(buildKrokiUrl(fixedMermaid)).then(r => r.text());
+                const b64    = Buffer.from(svgStr).toString('base64');
+                mdText += `\n\n<div class="diagram-wrap">` +
+                          `<img src="data:image/svg+xml;base64,${b64}" alt="시스템 다이어그램" />` +
+                          `</div>\n\n`;
+            } catch {
+                // Base64 fetch 실패 시 URL 폴백
                 mdText += `\n\n<div class="diagram-wrap">` +
                           `<img src="${buildKrokiUrl(fixedMermaid)}" alt="시스템 다이어그램" />` +
                           `</div>\n\n`;
-            } else {
-                // PDF(기본): Base64 인라인 SVG — 외부 URL fetch 불필요, 오프라인 렌더링
-                // cachedSvg: Fast-Track 검증 시 이미 받은 SVG → 재사용해 Kroki 요청 절약
-                try {
-                    const svgStr = cachedSvg ?? await fetch(buildKrokiUrl(fixedMermaid)).then(r => r.text());
-                    const b64    = Buffer.from(svgStr).toString('base64');
-                    mdText += `\n\n<div class="diagram-wrap">` +
-                              `<img src="data:image/svg+xml;base64,${b64}" alt="시스템 다이어그램" />` +
-                              `</div>\n\n`;
-                } catch {
-                    // Base64 fetch 실패 시 URL 폴백
-                    mdText += `\n\n<div class="diagram-wrap">` +
-                              `<img src="${buildKrokiUrl(fixedMermaid)}" alt="시스템 다이어그램" />` +
-                              `</div>\n\n`;
-                }
             }
         } else {
             brokenCount++;
@@ -920,6 +913,41 @@ function buildHtmlReport(gameTitle, bodyHtml) {
         tr:last-child td { border-bottom: none; }
         tbody tr:hover   { background: #F8FAFC; }
 
+        /* ── 출처 접이식 ──────────────────────────────────────────────── */
+        .source-details {
+            margin: 8px 0 16px;
+            font-size: 0.82em;
+            color: var(--text-muted);
+        }
+        .source-details summary {
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 3px 10px;
+            background: #F1F5F9;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            user-select: none;
+            list-style: none;
+        }
+        .source-details summary:hover { background: #E2E8F0; }
+        .source-details summary::before { content: '🔗 '; font-size: 0.9em; }
+        .source-details ul {
+            margin: 8px 0 0 4px;
+            padding-left: 16px;
+        }
+        .source-details li { margin: 3px 0; }
+        .source-details a {
+            color: var(--text-muted);
+            font-size: 0.9em;
+            word-break: break-all;
+            text-decoration: none;
+        }
+        .source-details a:hover { color: var(--primary); text-decoration: underline; }
+
         /* ── 다이어그램 ───────────────────────────────────────────────── */
         .diagram-wrap {
             text-align: center;
@@ -1003,6 +1031,36 @@ function buildHtmlReport(gameTitle, bodyHtml) {
                 wrap.className = 'table-wrap';
                 tbl.parentNode.insertBefore(wrap, tbl);
                 wrap.appendChild(tbl);
+            });
+
+            // 출처 blockquote → <details> 접이식 처리
+            // "출처:" 로 시작하는 blockquote 안의 긴 URL 목록을 숨김 처리
+            body.querySelectorAll('blockquote').forEach(bq => {
+                const text = bq.textContent || '';
+                if (!text.trim().startsWith('출처:')) return;
+                // URL만 추출해 링크 목록 생성
+                const urls = [...text.matchAll(/https?:\/\/[^\s,]+/g)].map(m => m[0]);
+                if (urls.length === 0) return;
+                const details = document.createElement('details');
+                details.className = 'source-details';
+                const summary = document.createElement('summary');
+                summary.textContent = '출처 ' + urls.length + '개';
+                details.appendChild(summary);
+                const ul = document.createElement('ul');
+                urls.forEach(url => {
+                    const li = document.createElement('li');
+                    const a  = document.createElement('a');
+                    // grounding URL은 도메인만, 일반 URL은 전체 표시
+                    const isGrounding = url.includes('vertexaisearch') || url.includes('grounding');
+                    a.href        = url;
+                    a.textContent = isGrounding ? '[검색 출처]' : url.replace(/^https?:\/\//, '');
+                    a.target      = '_blank';
+                    a.rel         = 'noopener noreferrer';
+                    li.appendChild(a);
+                    ul.appendChild(li);
+                });
+                details.appendChild(ul);
+                bq.replaceWith(details);
             });
 
             container.appendChild(header);
