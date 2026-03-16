@@ -6,31 +6,25 @@ on:
   workflow_dispatch: 
 
 jobs:
-  scrape_top_50:
+  scrape_1_25:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          
       - name: Install Korean Fonts
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-        
       - name: Install dependencies
         run: |
           npm install
           npm install md-to-pdf marked googleapis @google/generative-ai
-          
-      - name: Run GCP Archive Script (Rank 1~50)
+      - name: Run GCP Archive Script (Rank 1~25)
         env:
           START_RANK: 1
-          END_RANK: 50
-          # ★ Top 50 전용 API 키 풀 (5개)
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_TOP }}
-          # ★ YouTube Data API 키 (선택 — 없으면 Scout 4회차 자동 스킵)
+          END_RANK: 25
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_1 }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
           GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
@@ -38,36 +32,83 @@ jobs:
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
         run: node gcp_archive.js
 
-  scrape_bottom_50:
+  scrape_26_50:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          
       - name: Install Korean Fonts
         run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
-        
       - name: Install dependencies
         run: |
           npm install
           npm install md-to-pdf marked googleapis @google/generative-ai
-
       - name: Avoid Folder Creation Race Condition
+        run: sleep 60
+      - name: Run GCP Archive Script (Rank 26~50)
+        env:
+          START_RANK: 26
+          END_RANK: 50
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_2 }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
+          GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
+          GCP_REFRESH_TOKEN: ${{ secrets.GCP_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: node gcp_archive.js
+
+  scrape_51_75:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Korean Fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Install dependencies
         run: |
-          echo "Top 50 서버가 드라이브에 오늘 날짜 폴더를 안전하게 먼저 생성하도록 60초 대기합니다..."
-          sleep 60
-          
-      - name: Run GCP Archive Script (Rank 51~100)
+          npm install
+          npm install md-to-pdf marked googleapis @google/generative-ai
+      - name: Avoid Folder Creation Race Condition
+        run: sleep 120
+      - name: Run GCP Archive Script (Rank 51~75)
         env:
           START_RANK: 51
+          END_RANK: 75
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_3 }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
+          GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
+          GCP_REFRESH_TOKEN: ${{ secrets.GCP_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: node gcp_archive.js
+
+  scrape_76_100:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Korean Fonts
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Install dependencies
+        run: |
+          npm install
+          npm install md-to-pdf marked googleapis @google/generative-ai
+      - name: Avoid Folder Creation Race Condition
+        run: sleep 180
+      - name: Run GCP Archive Script (Rank 76~100)
+        env:
+          START_RANK: 76
           END_RANK: 100
-          # ★ Bottom 50 전용 API 키 풀 (5개)
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_BOTTOM }}
-          # ★ YouTube Data API 키 (TOP과 동일한 키 공유 — 하루 10,000 유닛으로 100개 커버)
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_4 }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           GCP_CLIENT_ID: ${{ secrets.GCP_CLIENT_ID }}
           GCP_CLIENT_SECRET: ${{ secrets.GCP_CLIENT_SECRET }}
